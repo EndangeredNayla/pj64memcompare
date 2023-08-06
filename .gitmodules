@@ -1,0 +1,9 @@
+[submodule "include/MorphText"]
+	path = include/MorphText
+	url = https://github.com/CosmoCortney/MorphText.git
+[submodule "include/LitColor"]
+	path = include/LitColor
+	url = https://github.com/CosmoCortney/LitColor.git
+[submodule "include/OperativeArray"]
+	path = include/OperativeArray
+	url = https://github.com/CosmoCortney/OperativeArray.git
