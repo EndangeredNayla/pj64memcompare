@@ -1,14 +1,18 @@
 #pragma once
-#include"definitions.h"
+//#include"definitions.h"
 #include"MemDump.h"
 #include<functional>
 #include<iostream>
 #include"OperativeArray.h"
 #include"LitColor.h"
 #include"MorphText.h"
+#include"MemCompare.h"
 
 namespace MemoryCompare
 {
+	bool SaveBinary(const std::wstring& filePath, void* data, const uint64_t size, const bool append = false, const bool zip = false);
+	bool LoadBinary(const std::wstring& filePath, void*& out, uint64_t& size, const uint64_t startPos);
+	
 	template<typename dataType, typename addressType> class MemCompareResult
 	{
 	private:
@@ -215,16 +219,16 @@ namespace MemoryCompare
 		{
 			CreateHeader();
 
-			if (!MemoryCompare::SaveBinary(_path, _fileHeader, 16))
+			if (!SaveBinary(_path, _fileHeader, 16))
 				return false;
 
-			if (!MemoryCompare::SaveBinary(_path, _offsets, _resultCount * _addressWidth, true))
+			if (!SaveBinary(_path, _offsets, _resultCount * _addressWidth, true))
 				return false;
 
-			if (!MemoryCompare::SaveBinary(_path, _values, _resultCount * _valueWidth, true))
+			if (!SaveBinary(_path, _values, _resultCount * _valueWidth, true))
 				return false;
 
-			if (!MemoryCompare::SaveBinary(_path, _previousValues, _resultCount * _valueWidth, true))
+			if (!SaveBinary(_path, _previousValues, _resultCount * _valueWidth, true))
 				return false;
 
 			return true;
@@ -234,7 +238,7 @@ namespace MemoryCompare
 		{
 			uint64_t readSize = 16;
 			FreeData(false);
-			if (!MemoryCompare::LoadBinary(_path, (void*&)_fileHeader, readSize, 0))
+			if (!LoadBinary(_path, (void*&)_fileHeader, readSize, 0))
 				return false;
 
 			if (*(uint32_t*)_fileHeader != _magic)
@@ -248,16 +252,16 @@ namespace MemoryCompare
 
 			_resultCount = *(uint64_t*)(_fileHeader + RESULT_COUNT);
 			readSize = _resultCount * _addressWidth;
-			if (!MemoryCompare::LoadBinary(_path, (void*&)_offsets, readSize, 16))
+			if (!LoadBinary(_path, (void*&)_offsets, readSize, 16))
 				return false;
 			_hasAddresses = true;
 
 			readSize = _resultCount * _valueWidth;
-			if (!MemoryCompare::LoadBinary(_path, (void*&)_values, readSize, 16 + _resultCount * _addressWidth))
+			if (!LoadBinary(_path, (void*&)_values, readSize, 16 + _resultCount * _addressWidth))
 				return false;
 			_hasValues = true;
 
-			if (!MemoryCompare::LoadBinary(_path, (void*&)_previousValues, readSize, 16 + _resultCount * _addressWidth + _resultCount * _valueWidth))
+			if (!LoadBinary(_path, (void*&)_previousValues, readSize, 16 + _resultCount * _addressWidth + _resultCount * _valueWidth))
 				return false;
 			_hasPreviousValues = true;
 

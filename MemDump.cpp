@@ -1,4 +1,5 @@
 #include "MemDump.h"
+#include "MemCompare.h"
 #include<fstream>
 
 MemoryCompare::MemDump::MemDump(const HANDLE handle, void* address, const uint64_t memSize)
