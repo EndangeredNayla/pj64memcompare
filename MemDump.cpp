@@ -2,45 +2,36 @@
 #include "MemCompare.h"
 #include<fstream>
 
-MemoryCompare::MemDump::MemDump(const HANDLE handle, void* address, const uint64_t memSize)
+MemoryCompare::MemDump::MemDump(void* baseLocation, const uint64_t baseAddress, const uint64_t size)
 {
-	_handle = handle;
-	_hasHandle = true;
-	_address = address;
-	_memSize = memSize;
-	DumpExRAM();
+	_memDump = std::string(static_cast<char*>(baseLocation), size);
+	_baseAddress = baseAddress;
+	_size = size;
 }
 
-MemoryCompare::MemDump::MemDump(const std::wstring& path, void* address, const uint64_t size, const uint64_t startReading)
+MemoryCompare::MemDump::MemDump(const std::wstring& path, const uint64_t baseAddress, uint64_t size, const uint64_t startReading)
 {
-	_hasHandle = false;
-	_address = address;
+	_memDump.resize(size);
+	void* ptr = &_memDump[0];
 
-	_memDump = malloc(_memSize);
-	if (!MemoryCompare::LoadBinary(path, _memDump, _memSize, startReading))
-	{
-		free(_memDump);
-		_address = 0;
-		_memDump = nullptr;
-	}
+	if (!MemoryCompare::LoadBinary(path, ptr, size, startReading))
+		_memDump.clear();
+
+	_baseAddress = baseAddress;
+	_size = size;
 }
 
-void MemoryCompare::MemDump::DumpExRAM()
+uint64_t MemoryCompare::MemDump::GetBaseAddress()
 {
-	_memDump = malloc(_memSize);
-	if (!ReadProcessMemory(_handle, _address, _memDump, _memSize, nullptr))
-	{
-		free(_memDump);
-		_memDump = nullptr;
-	}
+	return _baseAddress;
 }
 
-bool MemoryCompare::MemDump::SaveDump(const std::wstring& filePath) const
+uint64_t MemoryCompare::MemDump::GetSize()
 {
-	return MemoryCompare::SaveBinary(filePath, _memDump, _memSize);
+	return _size;
 }
 
-bool MemoryCompare::MemDump::SaveDump() const
+std::wstring MemoryCompare::MemDump::GetPath()
 {
-	return MemoryCompare::SaveBinary(_filePath, _memDump, _memSize);
+	return _path;
 }

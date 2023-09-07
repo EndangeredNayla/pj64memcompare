@@ -1,6 +1,8 @@
 #pragma once
-#include"definitions.h"
 #include"MemDump.h"
+#include"LitColor.h"
+#include"MorphText.h"
+#include"OperativeArray.h"
 #include<functional>
 #include<iostream>
 #include"MemCompareResult.h"

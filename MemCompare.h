@@ -5,9 +5,10 @@
 #include"MemCompareResult.h"
 #include"MemCompareOperations.h"
 #include <type_traits>
-#include <tuple>
-#include <type_traits>
-#include"Xertz.h" //remove this later
+#include"LitColor.h"
+#include"MorphText.h"
+#include"OperativeArray.h"
+#include<fstream>
 
 namespace MemoryCompare
 {
@@ -33,17 +34,39 @@ namespace MemoryCompare
 		KNOWN = 1
 	};
 
-	template<typename T> static inline T SwapBytes(const T val)
+	enum ValueType
 	{
-		T temp = 0;
-		char buf;
+		PRIMITIVE = 0,
+		ARRAY = 1,
+		TEXT = 2,
+		COLOR = 3
+	};
 
-		for (int i = 0; i < sizeof(val); ++i)
+	enum PrimitiveType
+	{
+		INT8 = 0,
+		INT16 = 1,
+		INT32 = 2,
+		INT64 = 3,
+		FLOAT = 4,
+		DOUBLE = 5,
+		BOOL = 6
+	};
+
+	template<typename T> static inline T SwapBytes(T val)
+	{
+		uint8_t* temp = (uint8_t*)&val;
+		struct LoopIndices { uint8_t first; uint8_t last; };
+		LoopIndices i = { 0, sizeof(val) - 1 };
+
+		for (; i.first < sizeof(val) >> 1; ++i.first, --i.last)
 		{
-			buf = *((char*)(&val) + i);
-			*(reinterpret_cast<char*>(&temp) + sizeof(val) - (1 + i)) = buf;
+			temp[i.first] ^= temp[i.last];
+			temp[i.last] ^= temp[i.first];
+			temp[i.first] ^= temp[i.last];
 		}
-		return temp;
+
+		return val;
 	}
 
 	template <typename T, template<typename...> class Template>
@@ -93,7 +116,7 @@ namespace MemoryCompare
 		return true;
 	}
 
-	static bool LoadBinary(const std::wstring& filePath, void*& out, uint64_t& size, const uint64_t startPos)
+	static bool LoadBinary(const std::wstring& filePath, void* out, uint64_t& size, const uint64_t startPos)
 	{
 		std::ifstream file;
 		file.open(filePath, std::ios::binary | std::ios::in);
@@ -130,18 +153,10 @@ namespace MemoryCompare
 		return true;
 	}
 
-	template <typename dataType, typename addressType> class MemCompare
+	class MemCompare
 	{
 	private:
-		MemCompare()
-		{
-			if constexpr (std::is_integral_v<dataType> || std::is_floating_point_v<dataType>)
-			{
-				_knownValue = static_cast<dataType>(0);
-				_secondaryKnownValue = static_cast<dataType>(0);
-			}
-		}
-
+		MemCompare(){}
 		MemCompare(MemCompare const&) = delete;
 		void operator=(MemCompare const&) = delete;
 		static MemCompare& GetInstance()
@@ -150,959 +165,618 @@ namespace MemoryCompare
 			return Instance;
 		}
 
+		//Results
+		std::vector<MemCompareResults> _results;
 		uint32_t _iterationCount = 0;
-		std::vector<MemCompareResult<dataType, addressType>*> _results{};
-		MemoryCompare::MemDump _currentDump;
-
-		bool _signed = false;
-		bool _cached = false;
-		bool _rewindable = false;
-		bool _zip = false;
-		int _alignment = 4;
-		uint32_t _pid = -1;
-		void* _dumpAddress = nullptr;
-		uint64_t _dumpSize = 0;
 		uint64_t _resultCount = 0;
-		std::wstring _dumpDir;
+
+		//Main SetUp
+		std::wstring _resultsDir;
+		uint16_t _superiorDatatype = 0;
+		uint16_t _subsidiaryDatatype = 2;
+		uint8_t _addressWidth = 4;
+		uint8_t _valueWidth = 4;
+		bool _signedOrCaseSensitive = true;
+		uint16_t _alignment = 4; 
 		bool _swapBytes = false;
-		dataType _knownValue;
-		dataType _secondaryKnownValue;
-		uint32_t _condition = 0;
-		CompareOperator<dataType> _comparisonOperator = nullptr;
-		float _precision = 0.0f;
-		int _valueSizeFactor = 1;
-		addressType* _addresses = nullptr;
-		dataType* _values = nullptr;
-		dataType* _previousValues = nullptr;
-		DataAccess<dataType> _byteReader;
-		int _counterIteration = 0;
+		bool _cached = false;
+		bool _zip = false;
+		std::string _primaryKnownValueStr;
+		std::string _secondaryKnownValueStr;
+		
+		//Iteration
+		uint8_t _condition = 0;
+		bool _isKnownValue = false;
+		uint16_t _counterIteration = 0;
+		uint16_t _counterIterationIndex = 0;
+		float _precision = 1.0f;
+		bool _hex = false;
 
-		std::wstring GenerateFilePath() const
-		{
-			std::wstringstream stream;
-			stream << _dumpDir << "results" << _iterationCount << ".bin";
-			return stream.str();
-		}
+		//current range
+		uint16_t _rangeCount = 0;
+		int _previousIterationRangeIndex = -1;
+		char* _currentDumpAddress = nullptr;
+		uint64_t _currentDumpSize = 0;
+		uint64_t _currentBaseAddress = 0;
 
-		void InitialUnknown()
+		void selectPrimitiveUnknownInitial();
+		void selectPrimitiveUnknownSuccessive();
+		void selectPrimitiveKnownInitial();
+		void selectPrimitiveKnownSuccessive();
+		void selectColorKnownInitial();
+		void selectColorKnownSuccessive();
+		void selectTextKnownInitial();
+		void selectArrayKnownInitial();
+		void selectArrayKnownSuccessive(); //ToDo, signed values, floats
+		void setValueWidth();
+
+		template<typename dataType> dataType parseKnownValue(std::string& knownValue, const bool hex)
 		{
-			for (uint64_t offsetDump = 0; offsetDump < _dumpSize; offsetDump += _alignment)
+			std::stringstream stream;
+			dataType val;
+
+			if constexpr (std::is_integral_v<dataType>)
 			{
-				*(_addresses + _resultCount) = offsetDump;
-				*(_values + _resultCount) = _byteReader(*reinterpret_cast<dataType*>(_currentDump.GetDump<uint8_t*>() + offsetDump));
-				++_resultCount;
-			}
-		}
-
-		void SuccessiveUnknown()
-		{
-			if (_condition > OR)
-			{
-				if constexpr (std::is_integral_v<dataType>)
-				{
-					for (uint64_t i = 0; i < _results[_counterIteration - 1]->GetResultCount(); ++i)
-					{
-						addressType addr = *(_results[_counterIteration - 1]->GetResultOffsets() + i);
-						dataType val = *reinterpret_cast<dataType*>(
-							reinterpret_cast<uint8_t*>(_results[_counterIteration - 1]->GetResultValues()) 
-							+ i * _alignment);
-						dataType readVal = _byteReader(*reinterpret_cast<dataType*>(_currentDump.GetDump<uint8_t*>() + addr));
-
-						if (_comparisonOperator(readVal, val, _knownValue))
-						{
-							*(_addresses + _resultCount) = addr;
-							*(_values + _resultCount) = readVal;
-							*(_previousValues + _resultCount) = val;
-							++_resultCount;
-						}
-					}
-				}
+				if (hex)
+					stream << std::hex << knownValue;
 				else
-				{
-					for (uint64_t i = 0; i < _results[_counterIteration - 1]->GetResultCount(); ++i)
-					{
-						addressType addr = *(_results[_counterIteration - 1]->GetResultOffsets() + i);
-						dataType val = *reinterpret_cast<dataType*>(
-							reinterpret_cast<uint8_t*>(_results[_counterIteration - 1]->GetResultValues())
-							+ i * _alignment);
-						dataType readVal = _byteReader(*reinterpret_cast<dataType*>(_currentDump.GetDump<uint8_t*>() + addr));
+					stream << knownValue;
 
-
-						if (_comparisonOperator(readVal, val, _precision, false))
-						{
-							*(_addresses + _resultCount) = addr;
-							*(_values + _resultCount) = readVal;
-							*(_previousValues + _resultCount) = val;
-							++_resultCount;
-						}
-					}
-				}
+				stream >> val;
 			}
-			else
+			else if constexpr (std::is_floating_point_v<dataType>)
 			{
-				if constexpr (std::is_integral_v<dataType>)
-				{
-					for (uint64_t i = 0; i < _results[_counterIteration - 1]->GetResultCount(); ++i)
-					{
-						addressType addr = *(_results[_counterIteration - 1]->GetResultOffsets() + i);
-						dataType val = *reinterpret_cast<dataType*>(
-							reinterpret_cast<uint8_t*>(_results[_counterIteration - 1]->GetResultValues())
-							+ i * _alignment);
-						dataType readVal = _byteReader(*reinterpret_cast<dataType*>(_currentDump.GetDump<uint8_t*>() + addr));
-
-						if (_comparisonOperator(readVal, val))
-						{
-							*(_addresses + _resultCount) = addr;
-							*(_values + _resultCount) = readVal;
-							*(_previousValues + _resultCount) = val;
-							++_resultCount;
-						}
-					}
-				}
-				else
-				{
-					for (uint64_t i = 0; i < _results[_counterIteration - 1]->GetResultCount(); ++i)
-					{
-						addressType addr = *(_results[_counterIteration - 1]->GetResultOffsets() + i);
-						dataType val = *reinterpret_cast<dataType*>(
-							reinterpret_cast<uint8_t*>(_results[_counterIteration - 1]->GetResultValues())
-							+ i * _alignment);
-						dataType readVal = _byteReader(*reinterpret_cast<dataType*>(_currentDump.GetDump<uint8_t*>() + addr));
-
-						if (_comparisonOperator(readVal, val, _precision, false))
-						{
-							*(_addresses + _resultCount) = addr;
-							*(_values + _resultCount) = readVal;
-							*(_previousValues + _resultCount) = val;
-							++_resultCount;
-						}
-					}
-				}
+				stream << knownValue;
+				stream >> val;
 			}
+
+			return val;
 		}
 
-		void InitialKnown()
-		{
-			if (_condition > OR)
-			{
-				if constexpr (std::is_integral_v<dataType>)
-				{
-					for (uint64_t offsetDump = 0; offsetDump < _dumpSize; offsetDump += _alignment)
-					{
-						dataType readVal = _byteReader(*reinterpret_cast<dataType*>(_currentDump.GetDump<uint8_t*>() + offsetDump));
-
-						if (_comparisonOperator(readVal, _knownValue, _secondaryKnownValue))
-						{
-							*(_addresses + _resultCount) = offsetDump;
-							*(_values + _resultCount) = readVal;
-							++_resultCount;
-						}
-					}
-				}
-				else if constexpr (std::is_floating_point_v<dataType>)
-				{
-					for (uint64_t offsetDump = 0; offsetDump < _dumpSize; offsetDump += _alignment)
-					{
-						dataType readVal = _byteReader(*reinterpret_cast<dataType*>(_currentDump.GetDump<uint8_t*>() + offsetDump));
-
-						if (_comparisonOperator(readVal, _knownValue, _precision, false))
-						{
-							*(_addresses + _resultCount) = offsetDump;
-							*(_values + _resultCount) = readVal;
-							++_resultCount;
-						}
-					}
-				}
-			}
-			else
-			{
-				if constexpr (std::is_integral_v<dataType>)
-				{
-					for (uint64_t offsetDump = 0; offsetDump < _dumpSize; offsetDump += _alignment)
-					{
-						dataType readVal = _byteReader(*reinterpret_cast<dataType*>(_currentDump.GetDump<uint8_t*>() + offsetDump));
-
-						if (_comparisonOperator(readVal, _knownValue))
-						{
-							*(_addresses + _resultCount) = offsetDump;
-							*(_values + _resultCount) = readVal;
-							++_resultCount;
-						}
-					}
-				}
-				else if constexpr (std::is_floating_point_v<dataType>)
-				{
-					for (uint64_t offsetDump = 0; offsetDump < _dumpSize; offsetDump += _alignment)
-					{
-						dataType readVal = _byteReader(*reinterpret_cast<dataType*>(_currentDump.GetDump<uint8_t*>() + offsetDump));
-
-						if (_comparisonOperator(readVal, _knownValue, _precision, false))
-						{
-							*(_addresses + _resultCount) = offsetDump;
-							*(_values + _resultCount) = readVal;
-							++_resultCount;
-						}
-					}
-				}
-			}
-		}
-
-		void InitialKnownRGBA()
-		{
-			LitColor readValue;
-			readValue.SelectType(_knownValue.GetSelectedType());
-			DataAccess<uint32_t> byteReader;
-			byteReader.reader = _swapBytes ? DataAccess<uint32_t>::readReversed : DataAccess<uint32_t>::read;
-
-			for (uint64_t offsetDump = 0; offsetDump < _dumpSize; offsetDump += _alignment)
-			{
-				readValue = byteReader(*reinterpret_cast<uint32_t*>(_currentDump.GetDump<uint8_t*>() + offsetDump));
-					  
-				if (_comparisonOperator(readValue, _knownValue, _precision))
-				{
-					*(_addresses + _resultCount) = offsetDump;
-					*(reinterpret_cast<uint32_t*>(_values) + _resultCount) = readValue.GetRGBA();
-					++_resultCount;
-				}
-			}
-		}
-
-		void SuccessiveKnownRGBA()
-		{
-			LitColor readValue;
-			DataAccess<uint32_t> byteReader;
-			byteReader.reader = _swapBytes ? DataAccess<uint32_t>::readReversed : DataAccess<uint32_t>::read;
-
-			for (uint64_t i = 0; i < _results[_counterIteration - 1]->GetResultCount(); ++i)
-			{
-				const uint64_t readOffset = *(_results[_counterIteration - 1]->GetResultOffsets() + i);
-				readValue = byteReader(*reinterpret_cast<uint32_t*>(_currentDump.GetDump<uint8_t*>() + readOffset));
-
-				if (_comparisonOperator(readValue, _knownValue, _precision))
-				{
-					*(_addresses + _resultCount) = *(_results[_counterIteration - 1]->GetResultOffsets() + i);
-					*(reinterpret_cast<uint32_t*>(_values) + _resultCount) = readValue.GetRGBA();
-					*(reinterpret_cast<uint32_t*>(_previousValues) + _resultCount) = *(reinterpret_cast<uint32_t*>(_results[_counterIteration - 1]->GetResultValues()) + i);
-					++_resultCount;
-				}
-			}
-		}
-
-		void InitialKnownRGB565()
-		{
-			LitColor readValue;
-			readValue.SelectType(_knownValue.GetSelectedType());
-			DataAccess<uint16_t> byteReader;
-			byteReader.reader = _swapBytes ? DataAccess<uint16_t>::readReversed : DataAccess<uint16_t>::read;
-
-			for (uint64_t offsetDump = 0; offsetDump < _dumpSize; offsetDump += _alignment)
-			{
-				readValue = byteReader(*reinterpret_cast<uint16_t*>(_currentDump.GetDump<uint8_t*>() + offsetDump));
-
-				if (_comparisonOperator(readValue, _knownValue, _precision))
-				{
-					*(_addresses + _resultCount) = offsetDump;
-					*(reinterpret_cast<uint16_t*>(_values) + _resultCount) = readValue.GetRGB565();
-					++_resultCount;
-				}
-			}
-		}
-
-		void SuccessiveKnownRGB565()
-		{
-			LitColor readValue;
-			DataAccess<uint16_t> byteReader;
-			byteReader.reader = _swapBytes ? DataAccess<uint16_t>::readReversed : DataAccess<uint16_t>::read;
-
-			for (uint64_t i = 0; i < _results[_counterIteration - 1]->GetResultCount(); ++i)
-			{
-				const uint64_t readOffset = *(_results[_counterIteration - 1]->GetResultOffsets() + i);
-				readValue = byteReader(*reinterpret_cast<uint16_t*>(_currentDump.GetDump<uint8_t*>() + readOffset));
-
-				if (_comparisonOperator(readValue, _knownValue, _precision))
-				{
-					*(_addresses + _resultCount) = *(_results[_counterIteration - 1]->GetResultOffsets() + i);
-					*(reinterpret_cast<uint16_t*>(_values) + _resultCount) = readValue.GetRGB565();
-					*(reinterpret_cast<uint16_t*>(_previousValues) + _resultCount) = *(reinterpret_cast<uint16_t*>(_results[_counterIteration - 1]->GetResultValues()) + i);
-					++_resultCount;
-				}
-			}
-		}
-
-		void InitialKnownText()
-		{
-			int format = _knownValue.GetPrimaryFormat();
-
-			switch (format)
-			{
-			case MorphText::UTF16LE: case MorphText::UTF16BE: {
-				wchar_t* buf = new wchar_t[_valueSizeFactor];
-				buf[_valueSizeFactor/2 - 1] = '\0';
-				bool isBigEndian = format == MorphText::UTF16BE ? true : false;
-
-				for (uint64_t offsetDump = 0; offsetDump < _dumpSize; offsetDump += _alignment)
-				{
-					memcpy(buf, _currentDump.GetDump<char*>() + offsetDump, _valueSizeFactor - 1);
-					if (_knownValue.Compare(buf, true, isBigEndian))
-					{
-						*(_addresses + _resultCount) = offsetDump;
-						std::memcpy(reinterpret_cast<char*>(_values) + _resultCount * _valueSizeFactor, buf, _valueSizeFactor);
-						++_resultCount;
-					}
-				}
-				delete[] buf;
-			} break;
-			case MorphText::UTF32LE: case MorphText::UTF32BE: {
-				char32_t* buf = new char32_t[_valueSizeFactor];
-				buf[_valueSizeFactor / 4 - 1] = '\0';
-				bool isBigEndian = format == MorphText::UTF32BE ? true : false;
-
-				for (uint64_t offsetDump = 0; offsetDump < _dumpSize; offsetDump += _alignment)
-				{
-					memcpy(buf, _currentDump.GetDump<char*>() + offsetDump, _valueSizeFactor - 1);
-					if (_knownValue.Compare(buf, true, isBigEndian))
-					{
-						*(_addresses + _resultCount) = offsetDump;
-						std::memcpy(reinterpret_cast<char*>(_values) + _resultCount * _valueSizeFactor, buf, _valueSizeFactor);
-						++_resultCount;
-					}
-				}
-				delete[] buf;
-			} break;
-			default: //ASCII, Shift-Jis, UTF-8, ISO-8859-X
-			{
-				char* buf = new char[_valueSizeFactor];
-				buf[_valueSizeFactor-1] = '\0';
-
-				for (uint64_t offsetDump = 0; offsetDump < _dumpSize; offsetDump += _alignment)
-				{
-					memcpy(buf, _currentDump.GetDump<char*>() + offsetDump, _valueSizeFactor - 1);
-
-					if (_knownValue.Compare(buf, true, format))
-					{
-						*(_addresses + _resultCount) = offsetDump;
-						std::memcpy(reinterpret_cast<char*>(_values) + _resultCount * _valueSizeFactor, buf, _valueSizeFactor);
-						++_resultCount;
-					}
-				}
-				delete[] buf;
-			}
-			}
-		}
-
-		void InitialKnownRGBAF()
-		{
-			LitColor readValue;
-			readValue.SelectType(_knownValue.GetSelectedType());
-			DataAccess<float> byteReader;
-			byteReader.reader = _swapBytes ? DataAccess<float>::readReversed : DataAccess<float>::read;
-			const int colorValueCount = (_knownValue.UsesAlpha() ? 4 : 3);
-
-			for (uint64_t offsetDump = 0; offsetDump < _dumpSize - 2*sizeof(float); offsetDump += _alignment)
-			{
-				for(int rgbaSelect = 0; rgbaSelect < colorValueCount; ++rgbaSelect)
-					readValue.SetColorValue<float>(byteReader(*reinterpret_cast<float*>(_currentDump.GetDump<uint8_t*>() 
-						+ offsetDump + rgbaSelect * sizeof(float))
-					), rgbaSelect);
-
-				if (_comparisonOperator(readValue, _knownValue, _precision))
-				{
-					*(_addresses + _resultCount) = offsetDump;
-					for (int rgbaSelect = 0; rgbaSelect < colorValueCount; ++rgbaSelect)
-					{
-						*(reinterpret_cast<float*>(_values) + _resultCount * colorValueCount + rgbaSelect) = readValue.GetColorValue<float>(rgbaSelect);
-					}
-					++_resultCount;
-				}
-			}
-		}
-
-		void SuccessiveKnownRGBAF()
-		{
-			LitColor readValue;
-			DataAccess<uint32_t> byteReader;
-			byteReader.reader = _swapBytes ? DataAccess<uint32_t>::readReversed : DataAccess<uint32_t>::read;
-
-			for (uint64_t i = 0; i < _results[_counterIteration - 1]->GetResultCount(); ++i)
-			{
-				const uint64_t readOffset = *(_results[_counterIteration - 1]->GetResultOffsets() + i);
-				readValue = byteReader(*reinterpret_cast<uint32_t*>(_currentDump.GetDump<uint8_t*>() + readOffset));
-
-				if (_comparisonOperator(readValue, _knownValue, _precision))
-				{
-					*(_addresses + _resultCount) = *(_results[_counterIteration - 1]->GetResultOffsets() + i);
-					*(reinterpret_cast<uint32_t*>(_values) + _resultCount) = readValue.GetRGBA();
-					*(reinterpret_cast<uint32_t*>(_previousValues) + _resultCount) = *(((uint32_t*)_results[_counterIteration - 1]->GetResultValues() + i));
-					++_resultCount;
-				}
-			}
-		}
-
-		template <typename arrayType> void InitialKnownArray()
-		{
-			uint32_t itemCount = _knownValue.ItemCount();
-			dataType readArr(static_cast<arrayType>(0), itemCount);
-			DataAccess<arrayType> byteReader;
-			byteReader.reader = _swapBytes ? DataAccess<arrayType>::readReversed : DataAccess<arrayType>::read;
-
-			for (uint64_t offsetDump = 0; offsetDump < _dumpSize - (readArr.ItemCount()-1) * sizeof(arrayType); offsetDump += _alignment)
-			{
-				for (int index = 0; index < itemCount; ++index)
-				{
-					readArr[index] = byteReader(*reinterpret_cast<arrayType*>(_currentDump.GetDump<uint8_t*>() + offsetDump + index*sizeof(arrayType)));
-				}
-
-				if (_comparisonOperator(_knownValue, readArr))
-				{
-					*(_addresses + _resultCount) = offsetDump;
-
-					for (int index = 0; index < itemCount; ++index)
-					{
-						*(reinterpret_cast<arrayType*>(_values) + _resultCount * itemCount + index) = readArr[index];
-						*(reinterpret_cast<arrayType*>(_previousValues) + _resultCount * itemCount + index) = 0;
-					}
-					++_resultCount;
-				}
-			}
-		}
-
-		template <typename arrayType> void SuccessiveKnownArray()
-		{
-			uint32_t itemCount = _knownValue.ItemCount();
-			DataAccess<arrayType> byteReader;
-			byteReader.reader = _swapBytes ? DataAccess<arrayType>::readReversed : DataAccess<arrayType>::read;
-			dataType readArr(static_cast<arrayType>(0), itemCount);
-
-			for (uint64_t i = 0; i < _results[_counterIteration - 1]->GetResultCount(); ++i)
-			{
-				const uint64_t readOffset = *(_results[_counterIteration - 1]->GetResultOffsets() + i);
-				
-				for (int index = 0; index < itemCount; ++index)
-				{
-					readArr[index] = byteReader(*reinterpret_cast<arrayType*>(_currentDump.GetDump<uint8_t*>() + readOffset + index * sizeof(arrayType)));
-				}
-
-				if (_comparisonOperator(_knownValue, readArr))
-				{
-					*(_addresses + _resultCount) = *(_results[_counterIteration - 1]->GetResultOffsets() + i);
-
-					for (int index = 0; index < itemCount; ++index)
-					{
-						*(reinterpret_cast<arrayType*>(_values) + _resultCount * itemCount + index) = readArr[index];
-						*(reinterpret_cast<arrayType*>(_previousValues) + _resultCount * itemCount + index) = *((arrayType*)(_results[_counterIteration - 1]->GetResultValues()) + _resultCount * itemCount + index);
-					}
-					++_resultCount;
-				}
-			}
-		}
-
-		void SuccessiveKnown()
-		{
-			if (_condition > OR)
-			{
-				if constexpr (std::is_integral_v<dataType>)
-				{
-					for (uint64_t i = 0; i < _results[_counterIteration - 1]->GetResultCount(); ++i)
-					{
-						const uint64_t readOffset = *(_results[_counterIteration - 1]->GetResultOffsets() + i);
-						dataType readVal = _byteReader(*reinterpret_cast<dataType*>(_currentDump.GetDump<uint8_t*>() + readOffset));
-
-						if (_comparisonOperator(readVal, _knownValue, _secondaryKnownValue))
-						{
-							*(_addresses + _resultCount) = *(_results[_counterIteration - 1]->GetResultOffsets() + i);
-							*(_values + _resultCount) = readVal;
-							*(_previousValues + _resultCount) = *(_results[_counterIteration - 1]->GetResultValues() + i);
-							++_resultCount;
-						}
-					}
-				}
-				else
-				{
-					for (uint64_t i = 0; i < _results[_counterIteration - 1]->GetResultCount(); ++i)
-					{
-						const uint64_t readOffset = *(_results[_counterIteration - 1]->GetResultOffsets() + i);
-						dataType readVal = _byteReader(*reinterpret_cast<dataType*>(_currentDump.GetDump<uint8_t*>() + readOffset));
-
-						if (_comparisonOperator(readVal, _knownValue, _precision, false))
-						{
-							*(_addresses + _resultCount) = *(_results[_counterIteration - 1]->GetResultOffsets() + i);
-							*(_values + _resultCount) = readVal;
-							*(_previousValues + _resultCount) = *(_results[_counterIteration - 1]->GetResultValues() + i);
-							++_resultCount;
-						}
-					}
-				}
-			}
-			else
-			{
-				if constexpr (std::is_integral_v<dataType>)
-				{
-					for (uint64_t i = 0; i < _results[_counterIteration - 1]->GetResultCount(); ++i)
-					{
-						const uint64_t readOffset = *(_results[_counterIteration - 1]->GetResultOffsets() + i);
-						dataType readVal = _byteReader(*reinterpret_cast<dataType*>(_currentDump.GetDump<uint8_t*>() + readOffset));
-
-						if (_comparisonOperator(readVal, _knownValue))
-						{
-							*(_addresses + _resultCount) = *(_results[_counterIteration - 1]->GetResultOffsets() + i);
-							*(_values + _resultCount) = readVal;
-							*(_previousValues + _resultCount) = *(_results[_counterIteration - 1]->GetResultValues() + i);
-							++_resultCount;
-						}
-					}
-				}
-				else
-				{
-					for (uint64_t i = 0; i < _results[_counterIteration - 1]->GetResultCount(); ++i)
-					{
-						const uint64_t readOffset = *(_results[_counterIteration - 1]->GetResultOffsets() + i);
-						dataType readVal = _byteReader(*reinterpret_cast<dataType*>(_currentDump.GetDump<uint8_t*>() + readOffset));
-
-						if (_comparisonOperator(readVal, _knownValue, _precision, false))
-						{
-							*(_addresses + _resultCount) = *(_results[_counterIteration - 1]->GetResultOffsets() + i);
-							*(_values + _resultCount) = readVal;
-							*(_previousValues + _resultCount) = *(_results[_counterIteration - 1]->GetResultValues() + i);
-							++_resultCount;
-						}
-					}
-				}
-			}
-		}
-
-		bool SetAndSaveResults()
-		{
-			_addresses = static_cast<addressType*>(realloc(_addresses, sizeof(addressType) * _resultCount));
-			_values = static_cast<dataType*>(realloc(_values, _valueSizeFactor * _resultCount));
-			_previousValues = static_cast<dataType*>(realloc(_previousValues, _valueSizeFactor * _resultCount));
-
-			_results.push_back(new MemCompareResult<dataType, addressType>(false, GenerateFilePath(), _resultCount));
-			_results[_iterationCount]->SetValueWidth(&_knownValue);
-			_results[_iterationCount]->SetResultValues(_values);
-			_results[_iterationCount]->SetResultPreviousValues(_previousValues);
-			_results[_iterationCount]->SetResultOffsets(_addresses);
-
-			free(_addresses);
-			_addresses = nullptr;
-			free(_values);
-			_values = nullptr;
-			free(_previousValues);
-			_previousValues = nullptr;
-
-			if (_cached)
-				return true;
-
-			bool saved = _results[_iterationCount]->SaveResults(_zip);
-			_results[_iterationCount]->FreeData(false);
-			return saved;
-		}
-
-		void ReserveResultsSpace()
-		{
-			_currentDump = MemoryCompare::MemDump(OpenProcess(PROCESS_ALL_ACCESS, false, _pid), _dumpAddress, _dumpSize);
-			_addresses = static_cast<addressType*>(malloc(_dumpSize * sizeof(addressType)));
-
-			if constexpr (is_instantiation_of<dataType, OperativeArray>::value)
-			{
-				const std::type_info* typeID = _knownValue.UnderlyingTypeID();
-				if (*typeID == typeid(uint8_t))
-				{
-					_valueSizeFactor = 1;
-				}
-				else if (*typeID == typeid(uint8_t) || *typeID == typeid(int8_t))
-					_valueSizeFactor = 1;
-				else if (*typeID == typeid(uint16_t) || *typeID == typeid(int16_t))
-					_valueSizeFactor = 2;
-				else if (*typeID == typeid(uint64_t) || *typeID == typeid(int64_t) || *typeID == typeid(double))
-					_valueSizeFactor = 8;
-				else //float, int32, uint32, ...
-					_valueSizeFactor = 4;
-
-				_valueSizeFactor *= _knownValue.ItemCount();
-			}
-			else if constexpr (std::is_same_v<dataType, LitColor>)
-			{
-				switch (_knownValue.GetSelectedType())
-				{
-				case LitColor::RGBF:
-					_valueSizeFactor = 12;
-					break;
-				case LitColor::RGBAF:
-					_valueSizeFactor = 16;
-					break;
-				case LitColor::RGB565:
-					_valueSizeFactor = 2;
-					break;
-				default: //RGB888, RGBA8888
-					_valueSizeFactor = 4;
-				}
-			}
-			else if constexpr (std::is_same_v<dataType, MorphText>)
-			{
-				switch (_knownValue.GetPrimaryFormat())
-				{
-				case MorphText::ASCII:
-					_valueSizeFactor = strlen(_knownValue.GetASCII())+1;
-					break;
-				case MorphText::SHIFTJIS:
-					_valueSizeFactor = strlen(_knownValue.GetShiftJis())+1;
-					break;
-				case MorphText::UTF8:
-					_valueSizeFactor = strlen(_knownValue.GetUTF8().c_str()) + 1;
-					break;
-				case MorphText::UTF16LE: case MorphText::UTF16BE:
-					_valueSizeFactor = wcslen(_knownValue.GetUTF16(_knownValue.GetPrimaryFormat() == MorphText::UTF16BE ? true : false).c_str())*2 + 2;
-					break;
-				case MorphText::UTF32LE: case MorphText::UTF32BE:
-					_valueSizeFactor = std::char_traits<char32_t>::length(_knownValue.GetUTF32(_knownValue.GetPrimaryFormat() == MorphText::UTF32BE ? true : false).c_str()) * 4 + 4;
-					break;
-				default: //ISO-8859-X
-					_valueSizeFactor = strlen(_knownValue.GetISO8859X(_knownValue.GetPrimaryFormat())) +1;
-				}
-				
-			}
-			else if constexpr(std::is_integral_v<dataType> || std::is_floating_point_v<dataType>)
-			{
-				_valueSizeFactor = sizeof(dataType);
-				_byteReader.reader = _swapBytes ? DataAccess<dataType>::readReversed : DataAccess<dataType>::read;
-			}
-
-			_values = static_cast<dataType*>(malloc(_dumpSize * _valueSizeFactor));
-			_previousValues = static_cast<dataType*>(calloc(1, _dumpSize * _valueSizeFactor));
-		}
-
-		void SetUpComparasionOperator()
+		template<typename dataType> void setUpComparasionOperator(CompareOperator<dataType>& comparisonOperator)
 		{
 			switch (_condition)
 			{
 			case EQUAL:
 				if constexpr (std::is_floating_point_v<dataType>)
-					_comparisonOperator.opPrecision = CompareOperator<dataType>::equal_precision;
+					comparisonOperator.opPrecision = CompareOperator<dataType>::equal_precision;
 				else if constexpr (std::is_same_v<dataType, LitColor>)
-					_comparisonOperator.opColor = CompareOperator<dataType>::equal_color;
+					comparisonOperator.opColor = CompareOperator<dataType>::equal_color;
 				else// if constexpr (std::is_integral_v<dataType>)
-					_comparisonOperator.opSimple = CompareOperator<dataType>::equal;
+					comparisonOperator.opSimple = CompareOperator<dataType>::equal;
 				break;
 			case UNEQUAL:
 				if constexpr (std::is_floating_point_v<dataType>)
-					_comparisonOperator.opPrecision = CompareOperator<dataType>::not_equal_precision;
+					comparisonOperator.opPrecision = CompareOperator<dataType>::not_equal_precision;
 				else if constexpr (std::is_same_v<dataType, LitColor>)
-					_comparisonOperator.opColor = CompareOperator<dataType>::not_equal_color;
+					comparisonOperator.opColor = CompareOperator<dataType>::not_equal_color;
 				else// if constexpr (std::is_integral_v<dataType>)
-					_comparisonOperator.opSimple = CompareOperator<dataType>::not_equal;
-				break;
-			case LOWER:
-				if constexpr (std::is_floating_point_v<dataType>)
-					_comparisonOperator.opPrecision = CompareOperator<dataType>::lower_precision;
-				else if constexpr (std::is_integral_v<dataType>)
-					_comparisonOperator.opSimple = CompareOperator<dataType>::lower;
-				else if constexpr (std::is_same_v<dataType, LitColor>)
-					_comparisonOperator.opColor = CompareOperator<dataType>::lower_color;
-				else //OperativeArray
-					_comparisonOperator.opSimple = CompareOperator<dataType>::dummy;
-				break;
-			case LOWER_EQUAL:
-				if constexpr (std::is_floating_point_v<dataType>)
-					_comparisonOperator.opPrecision = CompareOperator<dataType>::lower_equal_precision;
-				else if constexpr (std::is_integral_v<dataType>)
-				_comparisonOperator.opSimple = CompareOperator<dataType>::lower_equal;
-				else if constexpr (std::is_same_v<dataType, LitColor>)
-					_comparisonOperator.opColor = CompareOperator<dataType>::lower_equal_color;
-				else //OperativeArray
-					_comparisonOperator.opSimple = CompareOperator<dataType>::dummy;
+					comparisonOperator.opSimple = CompareOperator<dataType>::not_equal;
 				break;
 			case GREATER:
 				if constexpr (std::is_floating_point_v<dataType>)
-					_comparisonOperator.opPrecision = CompareOperator<dataType>::greater_precision;
+					comparisonOperator.opPrecision = CompareOperator<dataType>::greater_precision;
 				else if constexpr (std::is_integral_v<dataType>)
-					_comparisonOperator.opSimple = CompareOperator<dataType>::greater;
+					comparisonOperator.opSimple = CompareOperator<dataType>::greater;
 				else if constexpr (std::is_same_v<dataType, LitColor>)
-					_comparisonOperator.opColor = CompareOperator<dataType>::greater_color;
+					comparisonOperator.opColor = CompareOperator<dataType>::greater_color;
 				else //OperativeArray
-					_comparisonOperator.opSimple = CompareOperator<dataType>::dummy;
+					comparisonOperator.opSimple = CompareOperator<dataType>::dummy;
 				break;
 			case GREATER_EQUAL:
 				if constexpr (std::is_floating_point_v<dataType>)
-					_comparisonOperator.opPrecision = CompareOperator<dataType>::greater_equal_precision;
+					comparisonOperator.opPrecision = CompareOperator<dataType>::greater_equal_precision;
 				else if constexpr (std::is_integral_v<dataType>)
-					_comparisonOperator.opSimple = CompareOperator<dataType>::greater_equal;
+					comparisonOperator.opSimple = CompareOperator<dataType>::greater_equal;
 				else if constexpr (std::is_same_v<dataType, LitColor>)
-					_comparisonOperator.opColor = CompareOperator<dataType>::greater_equal_color;
+					comparisonOperator.opColor = CompareOperator<dataType>::greater_equal_color;
 				else //OperativeArray
-					_comparisonOperator.opSimple = CompareOperator<dataType>::dummy;
+					comparisonOperator.opSimple = CompareOperator<dataType>::dummy;
 				break;
-			case AND:
-				if constexpr (std::is_integral_v<dataType>)
-					_comparisonOperator.opSimple = CompareOperator<dataType>::And;
-				else
-					_comparisonOperator.opSimple = CompareOperator<dataType>::dummy;
+			case LOWER:
+				if constexpr (std::is_floating_point_v<dataType>)
+					comparisonOperator.opPrecision = CompareOperator<dataType>::lower_precision;
+				else if constexpr (std::is_integral_v<dataType>)
+					comparisonOperator.opSimple = CompareOperator<dataType>::lower;
+				else if constexpr (std::is_same_v<dataType, LitColor>)
+					comparisonOperator.opColor = CompareOperator<dataType>::lower_color;
+				else //OperativeArray
+					comparisonOperator.opSimple = CompareOperator<dataType>::dummy;
 				break;
-			case OR:
-				if constexpr (std::is_integral_v<dataType>)
-					_comparisonOperator.opSimple = CompareOperator<dataType>::Or;
-				else
-					_comparisonOperator.opSimple = CompareOperator<dataType>::dummy;
+			case LOWER_EQUAL:
+				if constexpr (std::is_floating_point_v<dataType>)
+					comparisonOperator.opPrecision = CompareOperator<dataType>::lower_equal_precision;
+				else if constexpr (std::is_integral_v<dataType>)
+					comparisonOperator.opSimple = CompareOperator<dataType>::lower_equal;
+				else if constexpr (std::is_same_v<dataType, LitColor>)
+					comparisonOperator.opColor = CompareOperator<dataType>::lower_equal_color;
+				else //OperativeArray
+					comparisonOperator.opSimple = CompareOperator<dataType>::dummy;
 				break;
 			case INCREASED_BY:
 				if constexpr (std::is_floating_point_v<dataType>)
-					_comparisonOperator.opRangePrecision = CompareOperator<dataType>::increased_precision;
+					comparisonOperator.opRangePrecision = CompareOperator<dataType>::increased_precision;
 				else if constexpr (std::is_floating_point_v<dataType>)
-					_comparisonOperator.opRange = CompareOperator<dataType>::increased;
+					comparisonOperator.opRange = CompareOperator<dataType>::increased;
 				else //OperativeArray
-					_comparisonOperator.opRange = CompareOperator<dataType>::dummy_range;
+					comparisonOperator.opRange = CompareOperator<dataType>::dummy_range;
 				break;
 			case DECREASED_BY:
 				if constexpr (std::is_floating_point_v<dataType>)
-				_comparisonOperator.opRangePrecision = CompareOperator<dataType>::decreased_precision;
+					comparisonOperator.opRangePrecision = CompareOperator<dataType>::decreased_precision;
 				else if constexpr (std::is_floating_point_v<dataType>)
-					_comparisonOperator.opRange = CompareOperator<dataType>::decreased;
+					comparisonOperator.opRange = CompareOperator<dataType>::decreased;
 				else //OperativeArray
-					_comparisonOperator.opRange = CompareOperator<dataType>::dummy_range;
+					comparisonOperator.opRange = CompareOperator<dataType>::dummy_range;
 				break;
 			case BETWEEN:
 				if constexpr (std::is_floating_point_v<dataType>)
-				_comparisonOperator.opRangePrecision = CompareOperator<dataType>::between_precision;
+					comparisonOperator.opRangePrecision = CompareOperator<dataType>::between_precision;
 				else if constexpr (std::is_floating_point_v<dataType>)
-					_comparisonOperator.opRange = CompareOperator<dataType>::between;
+					comparisonOperator.opRange = CompareOperator<dataType>::between;
 				else //OperativeArray
-					_comparisonOperator.opRange = CompareOperator<dataType>::dummy_range;
+					comparisonOperator.opRange = CompareOperator<dataType>::dummy_range;
 				break;
 			case NOT_BETWEEN:
 				if constexpr (std::is_floating_point_v<dataType>)
-				_comparisonOperator.opRangePrecision = CompareOperator<dataType>::not_between_precision;
+					comparisonOperator.opRangePrecision = CompareOperator<dataType>::not_between_precision;
 				else if constexpr (std::is_floating_point_v<dataType>)
-					_comparisonOperator.opRange = CompareOperator<dataType>::not_between;
+					comparisonOperator.opRange = CompareOperator<dataType>::not_between;
 				else //OperativeArray
-					_comparisonOperator.opRange = CompareOperator<dataType>::dummy_range;
+					comparisonOperator.opRange = CompareOperator<dataType>::dummy_range;
 				break;
-
+			case AND:
+				if constexpr (std::is_integral_v<dataType>)
+					comparisonOperator.opSimple = CompareOperator<dataType>::And;
+				else
+					comparisonOperator.opSimple = CompareOperator<dataType>::dummy;
+				break;
+			case OR:
+				if constexpr (std::is_integral_v<dataType>)
+					comparisonOperator.opSimple = CompareOperator<dataType>::Or;
+				else
+					comparisonOperator.opSimple = CompareOperator<dataType>::dummy;
+				break;
 			default:
-				_comparisonOperator.opSimple = CompareOperator<dataType>::dummy;
+				comparisonOperator.opSimple = CompareOperator<dataType>::dummy;
 				break;
+			}
+		}
+
+		template<typename addressType, typename dataType> void primitiveUnknownInitial()
+		{
+			addressType addr;
+			dataType val;
+			DataAccess<dataType> byteReader;
+			byteReader.reader = _swapBytes ? DataAccess<dataType>::readReversed : DataAccess<dataType>::read;
+
+			int test = 0;
+
+			for (uint64_t offsetDump = 0; offsetDump < _currentDumpSize; offsetDump += _alignment)
+			{
+				if (offsetDump == 0x17fff0)
+				{
+					test = offsetDump;
+				}
+
+				addr = offsetDump + _currentBaseAddress;
+				val = byteReader(*reinterpret_cast<dataType*>(_currentDumpAddress + offsetDump));
+				_results.back().PushBackResult<addressType, dataType>(addr, val);
+			}
+		}
+
+		template<typename addressType, typename dataType> void primitiveUnknownSuccessive()
+		{
+			addressType addr;
+			dataType oldval;
+			dataType readval;
+			CompareOperator<dataType> comparisonOperator;
+			setUpComparasionOperator<dataType>(comparisonOperator);
+			DataAccess<dataType> byteReader;
+			byteReader.reader = _swapBytes ? DataAccess<dataType>::readReversed : DataAccess<dataType>::read;
+			
+			if (_condition == INCREASED_BY || _condition == DECREASED_BY)
+			{
+				const dataType increamentVal = parseKnownValue<dataType>(_primaryKnownValueStr, _hex);
+
+				for (uint64_t i = 0; i < _results[_counterIterationIndex].GetResultCountByRangeIndex(_previousIterationRangeIndex); ++i)
+				{
+					addr = _results[_counterIterationIndex].GetAddressByRangeIndex<addressType>(_previousIterationRangeIndex, i);
+					oldval = _results[_counterIterationIndex].GetValueByRangeIndex<dataType>(_previousIterationRangeIndex, i);
+					readval = byteReader(*reinterpret_cast<dataType*>(_currentDumpAddress + addr - _currentBaseAddress));
+
+					if constexpr (std::is_integral_v<dataType>)
+					{
+						if (comparisonOperator(readval, oldval, increamentVal))
+							_results.back().PushBackResult<addressType, dataType>(addr, readval, oldval);
+					}
+					else if constexpr (std::is_floating_point_v<dataType>)
+					{
+						if (comparisonOperator(readval, oldval, increamentVal, _precision))
+							_results.back().PushBackResult<addressType, dataType>(addr, readval, oldval);
+					}
+				}
+			}
+			else //EQUAL, UNEQUAL, GREATER, GREATER_EQUAL, LOWER, LOWER_EQUAL
+			{
+				int test = 0;
+				for (uint64_t i = 0; i < _results[_counterIterationIndex].GetResultCountByRangeIndex(_previousIterationRangeIndex); ++i)
+				{
+					if (i == 0xc00000)
+					{
+						test = i;
+					}
+
+					addr = _results[_counterIterationIndex].GetAddressByRangeIndex<addressType>(_previousIterationRangeIndex, i);
+					oldval = _results[_counterIterationIndex].GetValueByRangeIndex<dataType>(_previousIterationRangeIndex, i);
+					readval = byteReader(*reinterpret_cast<dataType*>(_currentDumpAddress + addr - _currentBaseAddress));
+
+					if constexpr (std::is_integral_v<dataType>)
+					{
+						if (comparisonOperator(readval, oldval))
+							_results.back().PushBackResult<addressType, dataType>(addr, readval, oldval);
+					}
+					else if constexpr (std::is_floating_point_v<dataType>)
+					{
+						if (comparisonOperator(readval, oldval, _precision, false))
+							_results.back().PushBackResult<addressType, dataType>(addr, readval, oldval);
+					}
+				}
+			}
+		}
+
+		template<typename addressType, typename dataType> void primitiveKnownInitial()
+		{
+			addressType addr;
+			dataType readVal;
+			dataType primaryKnownVal = parseKnownValue<dataType>(_primaryKnownValueStr, _hex);
+			CompareOperator<dataType> comparisonOperator;
+			setUpComparasionOperator<dataType>(comparisonOperator);
+			DataAccess<dataType> byteReader;
+			byteReader.reader = _swapBytes ? DataAccess<dataType>::readReversed : DataAccess<dataType>::read;
+			
+			if (_condition == INCREASED_BY || _condition == DECREASED_BY || _condition == BETWEEN || _condition == NOT_BETWEEN)
+			{
+				dataType secondaryKnownVal = parseKnownValue<dataType>(_secondaryKnownValueStr, _hex);
+
+				for (uint64_t offsetDump = 0; offsetDump < _currentDumpSize; offsetDump += _alignment)
+				{
+					addr = _currentBaseAddress + offsetDump;
+					readVal = byteReader(*reinterpret_cast<dataType*>(_currentDumpAddress + offsetDump));
+
+					if constexpr (std::is_integral_v<dataType>)
+					{
+						if (comparisonOperator(readVal, primaryKnownVal, secondaryKnownVal))
+							_results.back().PushBackResult<addressType, dataType>(addr, readVal);
+					}
+					else if constexpr (std::is_floating_point_v<dataType>)
+					{
+						if (comparisonOperator(readVal, primaryKnownVal, secondaryKnownVal, _precision))
+							_results.back().PushBackResult<addressType, dataType>(addr, readVal);
+					}
+				}
+			}
+			else //EQUAL, UNEQUAL, GREATER, GREATER_EQUAL, LOWER, LOWER_EQUAL
+			{
+				for (uint64_t offsetDump = 0; offsetDump < _currentDumpSize; offsetDump += _alignment)
+				{
+					addr = _currentBaseAddress + offsetDump;
+					readVal = byteReader(*reinterpret_cast<dataType*>(_currentDumpAddress + offsetDump));
+
+					if constexpr (std::is_integral_v<dataType>)
+					{
+						if (comparisonOperator(readVal, primaryKnownVal))
+							_results.back().PushBackResult<addressType, dataType>(addr, readVal);
+					}
+					else if constexpr (std::is_floating_point_v<dataType>)
+					{
+						if (comparisonOperator(readVal, primaryKnownVal, _precision, false))
+							_results.back().PushBackResult<addressType, dataType>(addr, readVal);
+					}
+				}
+			}
+		}
+
+		template<typename addressType, typename dataType> void primitiveKnownSuccessive()
+		{
+			addressType addr;
+			dataType readVal;
+			dataType oldVal;
+			dataType primaryKnownVal = parseKnownValue<dataType>(_primaryKnownValueStr, _hex);
+			CompareOperator<dataType> comparisonOperator;
+			setUpComparasionOperator<dataType>(comparisonOperator);
+			DataAccess<dataType> byteReader;
+			byteReader.reader = _swapBytes ? DataAccess<dataType>::readReversed : DataAccess<dataType>::read;
+
+			if (_condition == INCREASED_BY || _condition == DECREASED_BY || _condition == BETWEEN || _condition == NOT_BETWEEN)
+			{
+				dataType secondaryKnownVal = parseKnownValue<dataType>(_primaryKnownValueStr, _hex);
+
+				for (uint64_t i = 0; i < _results[_counterIterationIndex].GetResultCountByRangeIndex(_previousIterationRangeIndex); ++i)
+				{
+					addr = _results[_counterIterationIndex].GetAddressByRangeIndex<addressType>(_previousIterationRangeIndex, i);
+					oldVal = _results[_counterIterationIndex].GetValueByRangeIndex<dataType>(_previousIterationRangeIndex, i);
+					readVal = byteReader(*reinterpret_cast<dataType*>(_currentDumpAddress + addr - _currentBaseAddress));
+
+					if constexpr (std::is_integral_v<dataType>)
+					{
+						if (comparisonOperator(readVal, primaryKnownVal, secondaryKnownVal))
+							_results.back().PushBackResult<addressType, dataType>(addr, readVal, oldVal);
+					}
+					else if constexpr (std::is_floating_point_v<dataType>)
+					{
+						if (comparisonOperator(readVal, primaryKnownVal, secondaryKnownVal, _precision))
+							_results.back().PushBackResult<addressType, dataType>(addr, readVal, oldVal);
+					}
+				}
+			}
+			else //EQUAL, UNEQUAL, GREATER, GREATER_EQUAL, LOWER, LOWER_EQUAL
+			{
+				for (uint64_t i = 0; i < _results[_counterIterationIndex].GetResultCountByRangeIndex(_previousIterationRangeIndex); ++i)
+				{
+					addr = _results[_counterIterationIndex].GetAddressByRangeIndex<addressType>(_previousIterationRangeIndex, i);
+					oldVal = _results[_counterIterationIndex].GetValueByRangeIndex<dataType>(_previousIterationRangeIndex, i);
+					readVal = byteReader(*reinterpret_cast<dataType*>(_currentDumpAddress + addr - _currentBaseAddress));
+
+					if constexpr (std::is_integral_v<dataType>)
+					{
+						if (comparisonOperator(readVal, primaryKnownVal))
+							_results.back().PushBackResult<addressType, dataType>(addr, readVal, oldVal);
+					}
+					else if constexpr (std::is_floating_point_v<dataType>)
+					{
+						if (comparisonOperator(readVal, primaryKnownVal, _precision, false))
+							_results.back().PushBackResult<addressType, dataType>(addr, readVal, oldVal);
+					}
+				}
+			}
+		}
+
+		template<typename addressType> void colorKnownInitial()
+		{
+			addressType addr;
+			LitColor knownVal(_primaryKnownValueStr);
+			LitColor readVal;
+			readVal.SelectType(_subsidiaryDatatype);
+			CompareOperator<LitColor> comparisonOperator;
+			setUpComparasionOperator<LitColor>(comparisonOperator);
+
+			switch (_subsidiaryDatatype)
+			{
+			case LitColor::RGB565:
+			{
+				DataAccess<uint16_t> byteReader;
+				byteReader.reader = _swapBytes ? DataAccess<uint16_t>::readReversed : DataAccess<uint16_t>::read;
+
+				for (uint64_t offsetDump = 0; offsetDump < _currentDumpSize; offsetDump += _alignment)
+				{
+					addr = _currentBaseAddress + offsetDump;
+					readVal = byteReader(*reinterpret_cast<uint16_t*>(_currentDumpAddress + offsetDump));
+
+					if (comparisonOperator(readVal, knownVal, _precision))
+						_results.back().PushBackResult<addressType, uint16_t>(addr, readVal.GetRGB565());
+				}
+			}
+			break;
+			case LitColor::RGBF: case LitColor::RGBAF:
+			{
+				DataAccess<float> byteReader;
+				byteReader.reader = _swapBytes ? DataAccess<float>::readReversed : DataAccess<float>::read;
+				const int colorValueCount = (knownVal.UsesAlpha() ? 4 : 3);
+				static float colorBuf[4];
+
+				for (uint64_t offsetDump = 0; offsetDump < _currentDumpSize - 2 * sizeof(float); offsetDump += _alignment)
+				{
+					for (int rgbaSelect = 0; rgbaSelect < colorValueCount; ++rgbaSelect)
+						readVal.SetColorValue<float>(byteReader(*reinterpret_cast<float*>(_currentDumpAddress + offsetDump + rgbaSelect * sizeof(float))), rgbaSelect);
+
+					if (comparisonOperator(readVal, knownVal, _precision))
+					{
+						for (int rgbaSelect = 0; rgbaSelect < colorValueCount; ++rgbaSelect)
+							colorBuf[rgbaSelect] = readVal.GetColorValue<float>(rgbaSelect);
+
+						_results.back().PushBackResultByPtr<addressType>(addr, reinterpret_cast<char*>(colorBuf));
+					}
+				}
+			}
+			break;
+			default: //RGB888, RGBA8888
+			{
+				DataAccess<uint32_t> byteReader;
+				byteReader.reader = _swapBytes ? DataAccess<uint32_t>::readReversed : DataAccess<uint32_t>::read;
+
+				for (uint64_t offsetDump = 0; offsetDump < _currentDumpSize; offsetDump += _alignment)
+				{
+					addr = _currentBaseAddress + offsetDump;
+					readVal = byteReader(*reinterpret_cast<uint32_t*>(_currentDumpAddress + offsetDump));
+
+					if (comparisonOperator(readVal, knownVal, _precision))
+						_results.back().PushBackResult<addressType, uint32_t>(addr, readVal.GetRGBA());
+				}
+			}
+			}
+		}
+
+		template<typename addressType> void colorKnownSuccessive()
+		{
+			addressType addr;
+			LitColor knownVal(_primaryKnownValueStr);
+			LitColor readVal = knownVal;
+			CompareOperator<LitColor> comparisonOperator;
+			setUpComparasionOperator<LitColor>(comparisonOperator);
+
+			switch (_subsidiaryDatatype)
+			{
+			case LitColor::RGB565:
+			{
+				DataAccess<uint16_t> byteReader;
+				byteReader.reader = _swapBytes ? DataAccess<uint16_t>::readReversed : DataAccess<uint16_t>::read;
+
+				for (uint64_t i = 0; i < _results[_counterIterationIndex].GetResultCountByRangeIndex(_previousIterationRangeIndex); ++i)
+				{
+					addr = _results[_counterIterationIndex].GetAddressByRangeIndex<addressType>(_previousIterationRangeIndex, i);
+					readVal = byteReader(*reinterpret_cast<uint16_t*>(_currentDumpAddress + addr - _currentBaseAddress));
+
+					if (comparisonOperator(readVal, knownVal, _precision))
+						_results.back().PushBackResult<addressType, uint16_t>(addr, readVal.GetRGB565(), _results[_counterIterationIndex].GetValueByRangeIndex<uint16_t>(_previousIterationRangeIndex, i));
+				}
+			}
+			break;
+			case LitColor::RGBF: case LitColor::RGBAF:
+			{
+				DataAccess<float> byteReader;
+				byteReader.reader = _swapBytes ? DataAccess<float>::readReversed : DataAccess<float>::read;
+				const int colorValueCount = (knownVal.UsesAlpha() ? 4 : 3);
+				float colorBuf[4];
+
+				for (uint64_t i = 0; i < _results[_counterIterationIndex].GetResultCountByRangeIndex(_previousIterationRangeIndex); ++i)
+				{
+					addr = _results[_counterIterationIndex].GetAddressByRangeIndex<addressType>(_previousIterationRangeIndex, i);
+
+					for (int rgbaSelect = 0; rgbaSelect < colorValueCount; ++rgbaSelect)
+						readVal.SetColorValue<float>(byteReader(*reinterpret_cast<float*>(_currentDumpAddress + addr - _currentBaseAddress + rgbaSelect * sizeof(float))), rgbaSelect);
+
+					if (comparisonOperator(readVal, knownVal, _precision))
+					{
+						for (int rgbaSelect = 0; rgbaSelect < colorValueCount; ++rgbaSelect)
+							colorBuf[rgbaSelect] = readVal.GetColorValue<float>(rgbaSelect);
+
+						_results.back().PushBackResultByPtr<addressType>(addr, reinterpret_cast<char*>(colorBuf), reinterpret_cast<char*>(_results[_counterIterationIndex].GetSpecificValuePtrByRangeIndex<float>(_previousIterationRangeIndex, colorValueCount * i)));
+					}
+				}
+			}
+			break;
+			default:  //RGB888, RGBA8888
+				DataAccess<uint32_t> byteReader;
+				byteReader.reader = _swapBytes ? DataAccess<uint32_t>::readReversed : DataAccess<uint32_t>::read;
+
+				for (uint64_t i = 0; i < _results[_counterIterationIndex].GetResultCountByRangeIndex(_previousIterationRangeIndex); ++i)
+				{
+					addr = _results[_counterIterationIndex].GetAddressByRangeIndex<addressType>(_previousIterationRangeIndex, i);
+					readVal = byteReader(*reinterpret_cast<uint32_t*>(_currentDumpAddress + addr - _currentBaseAddress));
+
+					if (comparisonOperator(readVal, knownVal, _precision))
+						_results.back().PushBackResult<addressType, uint32_t>(addr, readVal.GetRGBA(), _results[_counterIterationIndex].GetValueByRangeIndex<uint32_t>(_previousIterationRangeIndex, i));
+				}
+			}
+		}
+
+		template<typename addressType> void textKnownInitial()
+		{
+			addressType addr;
+			MorphText knownVal;
+			DataAccess<uint32_t> byteReader;
+			byteReader.reader = _swapBytes ? DataAccess<uint32_t>::readReversed : DataAccess<uint32_t>::read;
+			MorphText knownValUTF8(_primaryKnownValueStr);
+			const int charCount = _primaryKnownValueStr.size();
+			const bool isBigEndian = _subsidiaryDatatype == MorphText::UTF16BE || _subsidiaryDatatype == MorphText::UTF32BE;
+			knownValUTF8.SetPrimaryFormat(_subsidiaryDatatype);
+
+			switch (_subsidiaryDatatype)
+			{
+			case MorphText::UTF16LE: case MorphText::UTF16BE: {
+				std::wstring buf(charCount, '\0');
+				knownVal = isBigEndian ? knownValUTF8.GetUTF16(true) : knownValUTF8.GetUTF16();
+
+				for (uint64_t offsetDump = 0; offsetDump < _currentDumpSize; offsetDump += _alignment)
+				{
+					memcpy(buf.data(), _currentDumpAddress + offsetDump, charCount);
+
+					if (knownVal.Compare(buf.data(), _signedOrCaseSensitive, isBigEndian))
+					{
+						addr = _currentBaseAddress + offsetDump;
+						_results.back().PushBackResultByPtr<addressType>(addr, reinterpret_cast<char*>(buf.data()));
+					}
+				}
+			} break;
+			case MorphText::UTF32LE: case MorphText::UTF32BE: {
+				std::u32string buf(charCount, '\0');
+				knownVal = isBigEndian ? knownValUTF8.GetUTF32(true) : knownValUTF8.GetUTF32();
+
+				for (uint64_t offsetDump = 0; offsetDump < _currentDumpSize; offsetDump += _alignment)
+				{
+					memcpy(buf.data(), _currentDumpAddress + offsetDump, charCount);
+
+					if (knownVal.Compare(buf.data(), _signedOrCaseSensitive, isBigEndian))
+					{
+						addr = _currentBaseAddress + offsetDump;
+						_results.back().PushBackResultByPtr<addressType>(addr, reinterpret_cast<char*>(buf.data()));
+					}
+				}
+			} break;
+			default: //ASCII, Shift-Jis, UTF-8, ISO-8859-X
+			{
+				std::string buf(charCount, '\0');
+
+				for (uint64_t offsetDump = 0; offsetDump < _currentDumpSize; offsetDump += _alignment)
+				{
+					memcpy(buf.data(), _currentDumpAddress + offsetDump, charCount);
+
+					if (knownValUTF8.Compare(buf.c_str(), _signedOrCaseSensitive, _subsidiaryDatatype))
+					{
+						addr = _currentBaseAddress + offsetDump;
+						buf.append("\0");
+						_results.back().PushBackResultByPtr<addressType>(addr, (char*)buf.c_str());
+					}
+				}
+			}
+			}
+		}
+
+		template<typename addressType, typename arrayType> void arrayKnownInitial()
+		{
+			addressType addr;
+			OperativeArray<arrayType> knownValue(_primaryKnownValueStr);
+			const uint32_t itemCount = knownValue.ItemCount();
+			OperativeArray<arrayType> readArr(static_cast<arrayType>(0), itemCount);
+			CompareOperator<OperativeArray<arrayType>> comparisonOperator;
+			setUpComparasionOperator<OperativeArray<arrayType>>(comparisonOperator);
+			DataAccess<arrayType> byteReader;
+			byteReader.reader = _swapBytes ? DataAccess<arrayType>::readReversed : DataAccess<arrayType>::read;
+
+			for (uint64_t offsetDump = 0; offsetDump < _currentDumpSize - (readArr.ItemCount()-1) * sizeof(arrayType); offsetDump += _alignment)
+			{
+				for (int index = 0; index < itemCount; ++index)
+					readArr[index] = byteReader(*reinterpret_cast<arrayType*>(_currentDumpAddress + offsetDump + index*sizeof(arrayType)));
+
+				if (comparisonOperator(knownValue, readArr))
+				{
+					addr = offsetDump + _currentBaseAddress;
+					_results.back().PushBackResultByPtr<addressType>(addr, (char*)&readArr[0]);
+				}
+			}
+		}
+
+		template <typename addressType, typename arrayType> void arrayKnownSuccessive()
+		{
+			addressType addr;
+			OperativeArray<arrayType> knownValue(_primaryKnownValueStr);
+			const uint32_t itemCount = knownValue.ItemCount();
+			CompareOperator<OperativeArray<arrayType>> comparisonOperator;
+			setUpComparasionOperator<OperativeArray<arrayType>>(comparisonOperator);
+			OperativeArray<arrayType>readArr(static_cast<arrayType>(0), itemCount);
+			DataAccess<arrayType> byteReader;
+			byteReader.reader = _swapBytes ? DataAccess<arrayType>::readReversed : DataAccess<arrayType>::read;
+			const uint16_t counterIterationIndex = _counterIteration - 1;
+
+			for (uint64_t i = 0; i < _results[_counterIterationIndex].GetResultCountByRangeIndex(_previousIterationRangeIndex); ++i)
+			{
+				addr = _results[_counterIterationIndex].GetAddressByRangeIndex<addressType>(_previousIterationRangeIndex, i);
+
+				for (int index = 0; index < itemCount; ++index)
+					readArr[index] = byteReader(*reinterpret_cast<arrayType*>(_currentDumpAddress + addr - _currentBaseAddress + index * sizeof(arrayType)));
+
+				if (comparisonOperator(knownValue, readArr))
+					_results.back().PushBackResultByPtr<addressType>(addr, reinterpret_cast<char*>(&readArr[0]), reinterpret_cast<char*>(_results[_counterIterationIndex].GetSpecificValuePtrByRangeIndex<arrayType>(_previousIterationRangeIndex, itemCount * i)));
 			}
 		}
 
 	public:
-		//I'm doing this kind of overloading here because I can't set template parameters optional (multiple definitions). Some parameters also have to be passed by references since they may be more complex structures
-		static std::tuple<uint64_t, int> Iterate(void* dumpAddress, uint64_t dumpSize, int32_t condition, bool isKnownValue, float precision, int counterIteration)
-		{
-			dataType dummyVal;
-			dataType dummyVal2;
-			isKnownValue = false;
-			return GetInstance().Iterate(dumpAddress, dumpSize, condition, isKnownValue, precision, dummyVal, dummyVal2, counterIteration);
-		}
-
-		static std::tuple<uint64_t, int> Iterate(void* dumpAddress, uint64_t dumpSize, int32_t condition, bool isKnownValue, float precision, const dataType knownValue, int counterIteration)
-		{
-			dataType dummyVal;
-			return GetInstance().Iterate(dumpAddress, dumpSize, condition, isKnownValue, precision, knownValue, dummyVal, counterIteration);
-		}
-
-		static std::tuple<uint64_t, uint32_t> Iterate(void* dumpAddress, uint64_t dumpSize, int32_t condition, bool isKnownValue, float precision, const dataType knownValue, const dataType secondaryKnownValue, int counterIteration)
-		{
-			GetInstance()._resultCount = 0;
-			GetInstance()._knownValue = knownValue;
-			GetInstance()._dumpAddress = dumpAddress;
-			GetInstance()._dumpSize = dumpSize;
-			GetInstance()._secondaryKnownValue = secondaryKnownValue;
-			GetInstance()._precision = precision;
-			GetInstance()._condition = condition;
-
-			if (counterIteration > GetInstance()._iterationCount || counterIteration < 1)
-				counterIteration = GetInstance()._iterationCount;
-			
-			if(GetInstance()._iterationCount > 0)
-				GetInstance()._results.at(counterIteration - 1)->LoadResults(false);
-			
-			if (counterIteration < GetInstance()._iterationCount)
-				GetInstance()._results.erase(GetInstance()._results.begin() + counterIteration, GetInstance()._results.end());
-
-			GetInstance()._iterationCount = counterIteration;
-			GetInstance()._counterIteration = counterIteration;
-
-			if constexpr (!std::is_same_v<dataType, MorphText>)
-				GetInstance().SetUpComparasionOperator();
-			GetInstance().ReserveResultsSpace();
-
-			if constexpr (is_instantiation_of<dataType, OperativeArray>::value)
-			{
-				const std::type_info* typeID = GetInstance()._knownValue.UnderlyingTypeID();
-
-				if (GetInstance()._iterationCount == 0)
-				{
-					if (isKnownValue)
-					{
-						if (*typeID == typeid(uint8_t))
-							GetInstance().InitialKnownArray<uint8_t>();
-						else if (*typeID == typeid(int8_t))
-							GetInstance().InitialKnownArray<int8_t>();
-						else if (*typeID == typeid(uint16_t))
-							GetInstance().InitialKnownArray<uint16_t>();
-						else if (*typeID == typeid(int16_t))
-							GetInstance().InitialKnownArray<int16_t>();
-						else if (*typeID == typeid(int32_t))
-							GetInstance().InitialKnownArray<int32_t>();
-						//else if (*typeID == typeid(float))
-						//	GetInstance().InitialKnownArray<float>();
-						else if (*typeID == typeid(uint64_t))
-							GetInstance().InitialKnownArray<uint64_t>();
-						else if (*typeID == typeid(int64_t))
-							GetInstance().InitialKnownArray<int64_t>();
-						//else if (*typeID == typeid(double))
-						//	GetInstance().InitialKnownArray<double>();
-						else
-							GetInstance().InitialKnownArray<uint32_t>();
-					}
-				}
-				else
-				{
-					if (isKnownValue)
-					{
-						if (*typeID == typeid(uint8_t))
-							GetInstance().SuccessiveKnownArray<uint8_t>();
-						else if (*typeID == typeid(int8_t))
-							GetInstance().SuccessiveKnownArray<int8_t>();
-						else if (*typeID == typeid(uint16_t))
-							GetInstance().SuccessiveKnownArray<uint16_t>();
-						else if (*typeID == typeid(int16_t))
-							GetInstance().SuccessiveKnownArray<int16_t>();
-						else if (*typeID == typeid(int32_t))
-							GetInstance().SuccessiveKnownArray<int32_t>();
-						//else if (*typeID == typeid(float))
-						//	GetInstance().SuccessiveKnownArray<float>();
-						else if (*typeID == typeid(uint64_t))
-							GetInstance().SuccessiveKnownArray<uint64_t>();
-						else if (*typeID == typeid(int64_t))
-							GetInstance().SuccessiveKnownArray<int64_t>();
-						//else if (*typeID == typeid(double))
-						//	GetInstance().SuccessiveKnownArray<double>();
-						else
-							GetInstance().SuccessiveKnownArray<uint32_t>();
-					}
-				}
-			}
-			else if constexpr (std::is_same_v<LitColor, dataType>)
-			{
-				const int colorType = GetInstance()._knownValue.GetSelectedType();
-				if (GetInstance()._iterationCount == 0)
-				{
-					if (isKnownValue)
-					{
-						switch (colorType)
-						{
-						case LitColor::RGBAF:
-						case LitColor::RGBF:
-							GetInstance().InitialKnownRGBAF();
-							break;
-						case LitColor::RGB565:
-								GetInstance().InitialKnownRGB565();
-								break;
-						default: //RGB888, RGBA8888
-							GetInstance().InitialKnownRGBA();
-						}
-					}
-				}
-				else
-				{
-					switch (colorType)
-					{
-					case LitColor::RGBAF:
-					case LitColor::RGBF:
-						GetInstance().SuccessiveKnownRGBAF();
-						break;
-					case LitColor::RGB565:
-						GetInstance().SuccessiveKnownRGB565();
-						break;
-					default: //RGB888, RGBA8888
-						GetInstance().SuccessiveKnownRGBA();
-					}
-				}
-			}
-			else if constexpr (std::is_same_v<MorphText, dataType>)
-			{
-					GetInstance().InitialKnownText();
-			}
-			else //float, integral
-			{
-				if (GetInstance()._iterationCount == 0)
-				{
-
-					if (isKnownValue)
-						GetInstance().InitialKnown();
-					else
-						GetInstance().InitialUnknown();
-				}
-				else
-				{
-					if (isKnownValue)
-						GetInstance().SuccessiveKnown();
-					else
-						GetInstance().SuccessiveUnknown();
-				}
-			}
-
-			if(GetInstance()._iterationCount > 0)
-				GetInstance()._results.at(counterIteration - 1)->FreeData(false);
-			GetInstance().SetAndSaveResults();
-			GetInstance()._iterationCount = ++counterIteration;
-			return std::tuple<uint64_t, uint32_t>(GetInstance()._resultCount, GetInstance()._iterationCount);
-		}
-
-		static std::tuple<uint64_t, uint32_t> Reset()
-		{
-			GetInstance()._iterationCount = 0;
-			GetInstance()._signed = false;
-			GetInstance()._cached = false;
-			GetInstance()._zip = false;
-			GetInstance()._alignment = 4;
-			GetInstance()._pid = 0;
-			GetInstance()._dumpAddress = nullptr;
-			GetInstance()._dumpSize = 0;
-			GetInstance()._resultCount = 0;
-			GetInstance()._dumpDir = L"";
-			GetInstance()._swapBytes = false;
-			GetInstance()._condition = 0;
-			GetInstance()._precision = 0.0f;
-			GetInstance()._valueSizeFactor = 1;
-			GetInstance()._addresses = nullptr;
-			GetInstance()._values = nullptr;
-			GetInstance()._previousValues = nullptr;
-			GetInstance()._counterIteration = 0;
-			GetInstance()._currentDump.~MemDump();
-
-			for (int i = 0; i < GetInstance()._results.size(); ++i)
-				GetInstance()._results[i]->FreeData(false);
-			GetInstance()._results.clear();
-
-			return std::tuple<uint64_t, uint32_t>(0, 0);
-		}
-
-		static void SetUp(int pid, std::wstring& dir, bool cached, bool swapByptes, int alignment)
-		{
-			GetInstance()._pid = pid;
-			GetInstance()._dumpDir = dir;
-			GetInstance()._cached = cached;
-			GetInstance()._swapBytes = swapByptes;
-			GetInstance()._alignment = alignment;
-		}
-
-		
-		static std::vector<MemCompareResult<dataType, addressType>*>* GetResults()
-		{
-			return &GetInstance()._results;
-		}
-
-		static uint32_t GetValueItemCount()
-		{
-			if constexpr (std::is_integral_v<dataType> || std::is_floating_point_v<dataType>)
-				return 1;
-			else
-				return GetInstance()._knownValue.ItemCount();
-		}
-
-		static dataType& GetPrimaryKnownValue()
-		{
-			return GetInstance()._knownValue;
-		}
+		static void SetUp(const std::wstring& resultsDir, const uint16_t superiorDatatype, const uint16_t subsidiaryDatatype, const uint8_t addressWidth, const bool isSigned, const uint16_t alignment = 4, const bool swapBytes = false, const bool cached = false, const bool zip = false);
+		static void NewIteration(const uint8_t condition, const bool hex, const bool isKnownValue, const uint16_t counterIteration, std::string& primaryKnownValue, std::string& secondaryKnownValue, const float precision = 1.0f);
+		static void ProcessNextRange(MemDump* range);
+		static const std::pair<uint64_t, uint16_t> GetSearchStats();
+		static MemCompareResults& GetResults();
+		static void Reset();
 	};
 }

@@ -1,299 +1,236 @@
 #pragma once
-//#include"definitions.h"
-#include"MemDump.h"
 #include<functional>
 #include<iostream>
-#include"OperativeArray.h"
-#include"LitColor.h"
-#include"MorphText.h"
-#include"MemCompare.h"
+#include <filesystem>
 
 namespace MemoryCompare
 {
-	bool SaveBinary(const std::wstring& filePath, void* data, const uint64_t size, const bool append = false, const bool zip = false);
-	bool LoadBinary(const std::wstring& filePath, void*& out, uint64_t& size, const uint64_t startPos);
-	
-	template<typename dataType, typename addressType> class MemCompareResult
+	class MemCompareResults
 	{
 	private:
-		uint8_t* _fileHeader = nullptr;
-		enum HeaderOffsets { MAGIC = 0, RESULT_COUNT = 4, ADDRESS_WIDTH = 12, VALUE_WIDTH = 13 };
-		const uint32_t _magic = 0x6d636d77; //memcompare magic word "mcmw"
-		dataType* _values = nullptr;
-		dataType* _previousValues = nullptr;
-		addressType* _offsets = nullptr;
+		enum HeaderOffsets { DUMP_STARTING_ADDRESS = 0, RESULT_COUNT = 8, ITERATION = 0x10, VALUE_WIDTH = 0x12, ADDRESS_WIDTH = 0x14, PLACEHOLDER = 0x15, HEADER_SIZE = 0x20 };
+		std::vector<char> _addresses;
+		std::vector<char> _values;
+		std::vector<char> _previousValues;
+		std::vector<uint64_t> _indices;
+		std::vector<uint64_t> _startingAdresses;
+		std::vector<uint64_t> _resultCounts;
+		std::vector<std::string> _fileHeaders;
 		std::wstring _path;
-		uint64_t _resultCount = 0;
+		uint16_t _rangeCount = 0;
+		uint64_t _totalResultCount = 0;
 		uint8_t _addressWidth = 0;
-		uint8_t _valueWidth = 0;
+		uint16_t _valueWidth = 0;
 		uint64_t _fileSize = 0;
+		uint16_t _iteration = 0;
 		bool _cached = false;
 		bool _zipped = false;
-		bool _hasAddresses = false;
-		bool _hasValues = false;
-		bool _hasPreviousValues = false;
 
-		void CreateHeader()
-		{
-			_fileHeader = (uint8_t*)calloc(1, 16);
-			*(uint32_t*)_fileHeader = _magic;
-			*(uint64_t*)((uint8_t*)_fileHeader + RESULT_COUNT) = _resultCount;
-			*((uint8_t*)_fileHeader + ADDRESS_WIDTH) = _addressWidth;
-			*((uint8_t*)_fileHeader + VALUE_WIDTH) = _valueWidth;
-		}
-
-		void Deallocate(void* ptr)
-		{
-			uint64_t size = _addressWidth * _resultCount;
-
-			if (ptr != nullptr)
-			{
-				free(ptr);
-				ptr = nullptr;
-			}
-		}
+		void createHeader(const uint32_t index);
 
 	public:
-		MemCompareResult() {};
-		MemCompareResult<typename dataType, typename addressType>(bool zipped, std::wstring path, uint64_t resultCount = 0)
+		MemCompareResults(std::wstring path, uint16_t iteration, uint8_t addressWidth, uint16_t valueWidth, uint16_t rangeCount = 0, bool cached = false, bool zip = false);
+
+		void SetNewRange(const uint64_t startingAddress);
+
+		template<typename addressType> void PushBackResultByPtr(addressType address, char* value, char* previousValue = nullptr)
 		{
-			_zipped = zipped;
-			_addressWidth = sizeof(addressType);
-			_valueWidth = sizeof(dataType);
-			_resultCount = resultCount;
-			_path = path;
+			_addresses.insert(_addresses.end(), reinterpret_cast<char*>(&address), reinterpret_cast<char*>(&address + 1));
+			_values.insert(_values.end(), value, value + _valueWidth);
+
+			if (_iteration > 1)
+				_previousValues.insert(_previousValues.end(), previousValue, previousValue + _valueWidth);
+
+			++_resultCounts.back();
+			++_totalResultCount;
 		}
 
-		~MemCompareResult()
+		template<typename addressType, typename dataType> void PushBackResult(addressType address, dataType value, dataType previousValue = 0)
 		{
-			FreeData(false);
+			_addresses.insert(_addresses.end(), reinterpret_cast<char*>(&address), reinterpret_cast<char*>(&address + 1));
+			_values.insert(_values.end(), reinterpret_cast<char*>(&value), reinterpret_cast<char*>(&value + 1));
+
+			if (_iteration > 1)
+				_previousValues.insert(_previousValues.end(), reinterpret_cast<char*>(&previousValue), reinterpret_cast<char*>(&previousValue + 1));
+
+			++_resultCounts.back();
+			++_totalResultCount;
 		}
 
-		dataType* GetResultValues()
+		int GetRangeIndexOfStartingAddress(const uint64_t startingAddress) const;
+
+		template <typename addressType> addressType* GetAddressesPtrAllRanges()
 		{
-			if(_hasValues)
-				return _values;
+			return reinterpret_cast<addressType*>(_addresses.data());
+		}
+
+		template <typename dataType> dataType* GetValuesPtrAllRanges()
+		{
+			return reinterpret_cast<dataType*>(_values);
+		}
+
+		template <typename dataType> dataType* GetPreviousValuesPtrAllRanges()
+		{
+			return reinterpret_cast<dataType*>(_previousValues);
+		}
+
+		template<typename addressType> addressType* GetAddressesPtrOfRange(const uint64_t startingAddress)
+		{
+			for (int i = 0; i < _rangeCount; ++i)
+				if (_startingAdresses[i] == startingAddress)
+					if (_resultCounts[i] == 0)
+						return nullptr;
+					else
+						return reinterpret_cast<addressType*>(& _addresses[_indices[i] * sizeof(addressType)]);
+
 			return nullptr;
 		}
 
-		dataType* GetResultPreviousValues()
+		template<typename dataType> dataType* GetValuesPtrOfRange(const uint64_t startingAddress)
 		{
-			if (_hasPreviousValues)
-				return _previousValues;
+			for (int i = 0; i < _rangeCount; ++i)
+				if (_startingAdresses[i] == startingAddress)
+					if (_resultCounts[i] == 0)
+						return nullptr;
+					else
+						return reinterpret_cast<dataType*>(&_values[_indices[i] * sizeof(dataType)]);
+
 			return nullptr;
 		}
 
-		addressType* GetResultOffsets()
+		template<typename dataType> dataType* GetPreviousValuesPtrOfRange(const uint64_t startingAddress)
 		{
-			if (_offsets)
-				return _offsets;
+			for (int i = 0; i < _rangeCount; ++i)
+				if (_startingAdresses[i] == startingAddress)
+					if (_resultCounts[i] == 0)
+						return nullptr;
+					else
+						return reinterpret_cast<dataType*>(&_previousValues[_indices[i] * sizeof(dataType)]);
+
 			return nullptr;
 		}
 
-		uint64_t GetResultCount()
+		template<typename addressType> addressType* GetAddressesPtrByRangeIndex(const uint32_t rangeIndex)
 		{
-			return _resultCount;
+			if (_resultCounts[rangeIndex] == 0)
+				return nullptr;
+
+			return reinterpret_cast<addressType*>(&_addresses[_indices[rangeIndex] * sizeof(addressType)]);
 		}
 
-		void FreeData(bool headerOnly)
+		template<typename dataType> dataType* GetValuesPtrByRangeIndex(const uint32_t rangeIndex)
 		{
-			free(_fileHeader);
-			_fileHeader = nullptr;
+			if (_resultCounts[rangeIndex] == 0)
+				return nullptr;
 
-			if (headerOnly)
-				return;
-
-			free(_offsets);
-			_offsets = nullptr;
-			free(_values);
-			_values = nullptr;
-			free(_previousValues);
-			_previousValues = nullptr;
-			_hasValues = false;
-			_hasPreviousValues = false;
-			_hasAddresses = false;
+			return reinterpret_cast<dataType*>(&_values[_indices[rangeIndex] * sizeof(dataType)]);
 		}
 
-		void SetValueWidth(dataType* ptr)
+		template<typename dataType> dataType* GetPreviousValuesPtrByRangeIndex(const uint32_t rangeIndex)
 		{
-			if constexpr (std::is_same_v<dataType, LitColor>)
-			{
-				switch (ptr->GetSelectedType())
-				{
-				case LitColor::RGB888:
-					_valueWidth = 3;
-					break;
-				case LitColor::RGBF:
-					_valueWidth = 12;
-					break;
-				case LitColor::RGBAF:
-					_valueWidth = 16;
-					break;
-				case LitColor::RGB565:
-					_valueWidth = 2;
-					break;
-				default: //RGBA8888
-					_valueWidth = 4;
-				}
-			}
-			else if constexpr (is_instantiation_of<dataType, OperativeArray>::value)
-			{
-				const std::type_info* typeID = ptr->UnderlyingTypeID();
-				if (*typeID == typeid(uint8_t) || *typeID == typeid(int8_t))
-				{
-					_valueWidth = ptr->ItemCount();
-				}
-				else if (*typeID == typeid(uint16_t) || *typeID == typeid(int16_t))
-				{
-					_valueWidth = ptr->ItemCount() * 2;
-				}
-				else if (*typeID == typeid(uint64_t) || *typeID == typeid(int64_t) || *typeID == typeid(double))
-				{
-					_valueWidth = ptr->ItemCount() * 8;
-				}
-				else
-				{
-					_valueWidth = ptr->ItemCount() * 4;
-				}
-			}
-			else if constexpr (std::is_same_v<dataType, MorphText>)
-			{
-				switch (ptr->GetPrimaryFormat())
-				{
-				case MorphText::ASCII: 
-					_valueWidth = strlen(ptr->GetASCII()) + 1;
-					break;
-				case MorphText::SHIFTJIS:
-					_valueWidth = strlen(ptr->GetShiftJis()) + 1;
-					break;
-				case MorphText::UTF8:
-					_valueWidth = strlen(ptr->GetUTF8().c_str()) + 1;
-					break;
-				case MorphText::UTF16LE: case MorphText::UTF16BE:
-					_valueWidth = wcslen(ptr->GetUTF16(ptr->GetPrimaryFormat() == MorphText::UTF16BE ? true : false).c_str())*2 + 2;
-					break;
-				case MorphText::UTF32LE: case MorphText::UTF32BE:
-					_valueWidth = std::char_traits<char32_t>::length(ptr->GetUTF32(ptr->GetPrimaryFormat() == MorphText::UTF32BE ? true : false).c_str()) * 4 + 4;
-					break;
-				default: //ISO-8859-X
-					_valueWidth = strlen(ptr->GetISO8859X(ptr->GetPrimaryFormat())) + 1;
-				}
-			}
-			else //integral, float types
-				_valueWidth = sizeof(dataType);
+			if (_resultCounts[rangeIndex] == 0)
+				return nullptr;
+
+			return reinterpret_cast<dataType*>(_previousValues[_indices[rangeIndex] * sizeof(dataType)]);
 		}
 
-		void SetResultValues(dataType* ptr)
+		template<typename addressType> addressType GetAddressByRangeIndex(const uint32_t rangeIndex, const uint64_t addressIndex)
 		{
-			uint64_t size = _valueWidth * _resultCount;
-			Deallocate((void*)_values);
-			_values = (dataType*)malloc(size);
-			memcpy(_values, ptr, size);
-			_hasValues = true;
+			if (_resultCounts[rangeIndex] == 0)
+				return 0;
+
+			return *reinterpret_cast<addressType*>(&_addresses[_indices[rangeIndex] * sizeof(addressType) + addressIndex * sizeof(addressType)]);
 		}
 
-		void SetResultPreviousValues(dataType* ptr)
+		template<typename dataType> dataType GetValueByRangeIndex(const uint32_t rangeIndex, const uint64_t valueIndex)
 		{
-			uint64_t size = _valueWidth * _resultCount;
-			Deallocate((void*)_previousValues);
-			_previousValues = (dataType*)malloc(size);
-			memcpy(_previousValues, ptr, size);
-			_hasPreviousValues = true;
+			if (_resultCounts[rangeIndex] == 0)
+				return 0;
+
+			return *reinterpret_cast<dataType*>(&_values[_indices[rangeIndex] * sizeof(dataType) + valueIndex * sizeof(dataType)]);
 		}
 
-		void SetResultOffsets(addressType* ptr)
+		template<typename dataType> dataType GetPreviousValueByRangeIndex(const uint32_t rangeIndex, const uint64_t valueIndex)
 		{
-			uint64_t size = _addressWidth * _resultCount;
-			Deallocate((void*)_offsets);
-			_offsets = (addressType*)malloc(size);
-			memcpy(_offsets, ptr, size);
-			_hasAddresses = true;
+			if (_resultCounts[rangeIndex] == 0)
+				return 0;
+
+			if(_iteration < 2)
+				return 0; 
+			
+			return *reinterpret_cast<dataType*>(&_previousValues[_indices[rangeIndex] * sizeof(dataType) + valueIndex * sizeof(dataType)]);
 		}
 
-		void SetResultCount(uint64_t count)
+		template<typename addressType> addressType GetAddressAllRanges(const uint64_t addressIndex)
 		{
-			_resultCount = count;
+			return *reinterpret_cast<addressType*>(&_addresses[addressIndex * sizeof(addressType)]);
 		}
 
-		bool SaveResults(bool zipped)
+		template<typename dataType> dataType GetValueAllRanges(const uint64_t valueIndex)
 		{
-			CreateHeader();
-
-			if (!SaveBinary(_path, _fileHeader, 16))
-				return false;
-
-			if (!SaveBinary(_path, _offsets, _resultCount * _addressWidth, true))
-				return false;
-
-			if (!SaveBinary(_path, _values, _resultCount * _valueWidth, true))
-				return false;
-
-			if (!SaveBinary(_path, _previousValues, _resultCount * _valueWidth, true))
-				return false;
-
-			return true;
+			return *reinterpret_cast<dataType*>(&_values[valueIndex * sizeof(dataType)]);
 		}
 
-		bool LoadResults(bool zipped)
+		template<typename dataType> dataType GetPreviousValueAllRanges(const uint64_t valueIndex)
 		{
-			uint64_t readSize = 16;
-			FreeData(false);
-			if (!LoadBinary(_path, (void*&)_fileHeader, readSize, 0))
-				return false;
+			if (_iteration < 2)
+				return 0;
 
-			if (*(uint32_t*)_fileHeader != _magic)
-			{
-				FreeData(true);
-				return false;
-			}
-
-			if (_addressWidth != *((uint8_t*)_fileHeader + ADDRESS_WIDTH) || _valueWidth != *((uint8_t*)_fileHeader + VALUE_WIDTH))
-				return false;
-
-			_resultCount = *(uint64_t*)(_fileHeader + RESULT_COUNT);
-			readSize = _resultCount * _addressWidth;
-			if (!LoadBinary(_path, (void*&)_offsets, readSize, 16))
-				return false;
-			_hasAddresses = true;
-
-			readSize = _resultCount * _valueWidth;
-			if (!LoadBinary(_path, (void*&)_values, readSize, 16 + _resultCount * _addressWidth))
-				return false;
-			_hasValues = true;
-
-			if (!LoadBinary(_path, (void*&)_previousValues, readSize, 16 + _resultCount * _addressWidth + _resultCount * _valueWidth))
-				return false;
-			_hasPreviousValues = true;
-
-			return true;
+			return *reinterpret_cast<dataType*>(&_previousValues[valueIndex * sizeof(dataType)]);
 		}
 
-		bool HasResults()
+		template<typename dataType> dataType* GetSpecificValuePtrByRangeIndex(const int32_t rangeIndex, const uint64_t valueIndex)
 		{
-			return _hasValues && _hasAddresses && _hasPreviousValues;
+			if (_resultCounts[rangeIndex] == 0)
+				return nullptr;
+
+			return reinterpret_cast<dataType*>(&_values[_indices[rangeIndex] * sizeof(dataType) + valueIndex * sizeof(dataType)]);
 		}
 
-		void operator=(const MemCompareResult<typename dataType, typename addressType>& other)
+		template<typename dataType> dataType* GetSpecificValuePtrAllRanges(const uint64_t valueIndex)
 		{
-			_path = other._path;
-			_resultCount = other._resultCount;
-			_addressWidth = other._addressWidth;
-			_valueWidth = other._valueWidth;
-			_cached = other._cached;
-			_zipped = other._zipped;
-			_fileSize = other._fileSize;
-			_hasValues = other._hasValues;
-			_hasAddresses = other._hasAddresses;
-			_hasPreviousValues = other._hasPreviousValues;
-
-			if (_fileHeader)
-				memcpy(_fileHeader, other._fileHeader, 16);
-			if (_values)
-				memcpy(_values, other._values, sizeof(dataType) * other._resultCount);
-			if (_previousValues)
-				memcpy(_previousValues, other._previousValues, sizeof(dataType) * other._resultCount);
-			if (_offsets)
-				memcpy(_offsets, other._offsets, sizeof(addressType) * other._resultCount);
+			return reinterpret_cast<dataType*>(&_values[valueIndex * sizeof(dataType)]);
 		}
+
+		template<typename dataType> dataType* GetSpecificPreviousValuePtrByRangeIndex(const uint32_t rangeIndex, const uint64_t valueIndex)
+		{
+			if (_resultCounts[rangeIndex] == 0)
+				return nullptr;
+
+			if (_iteration < 2)
+				return nullptr;
+
+			return reinterpret_cast<dataType*>(&_previousValues[_indices[rangeIndex] * sizeof(dataType) + valueIndex * sizeof(dataType)]);
+		}
+
+		template<typename dataType> dataType* GetSpecificPreviousValuePtrAllRanges(const uint64_t valueIndex)
+		{
+			if (_iteration < 2)
+				return nullptr;
+
+			return reinterpret_cast<dataType*>(&_previousValues[valueIndex * sizeof(dataType)]);
+		}
+
+		uint64_t GetTotalResultCount();
+
+		uint64_t GetResultCountByRangeIndex(const uint32_t index);
+
+		uint64_t GetResultCountOfRange(const uint64_t startingAddress);
+
+		void Clear();
+
+		void SetValueWidth(const uint16_t width);
+
+		void SetAddressWidth(const uint8_t width);
+
+		void SetResultCount(uint32_t index, uint64_t count);
+
+		bool SaveResults(uint32_t rangeIndex, bool zipped);
+
+		bool LoadResults(bool zipped);
+
+		uint16_t GetValueWidth();
+
+		void operator=(const MemCompareResults& other);
 	};
 }
