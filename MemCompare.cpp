@@ -659,6 +659,7 @@ void MemoryCompare::MemCompare::SetUp(const std::wstring& resultsDir, const uint
 void MemoryCompare::MemCompare::NewIteration(const uint8_t condition, const bool hex, const bool isKnownValue, const uint16_t counterIteration, std::string& primaryKnownValue, std::string& secondaryKnownValue, const float precision)
 {
 	GetInstance()._condition = condition;
+	GetInstance()._hex = hex;
 	GetInstance()._isKnownValue = isKnownValue;
 	GetInstance()._primaryKnownValueStr = primaryKnownValue;
 	GetInstance()._secondaryKnownValueStr = secondaryKnownValue;
