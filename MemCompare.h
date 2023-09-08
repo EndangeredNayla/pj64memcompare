@@ -50,7 +50,7 @@ namespace MemoryCompare
 		INT64 = 3,
 		FLOAT = 4,
 		DOUBLE = 5,
-		BOOL = 6
+		BOOL = 6 //todo
 	};
 
 	template<typename T> static inline T SwapBytes(T val)
@@ -209,6 +209,7 @@ namespace MemoryCompare
 		void selectArrayKnownInitial();
 		void selectArrayKnownSuccessive(); //ToDo, signed values, floats
 		void setValueWidth();
+		bool saveResults();
 
 		template<typename dataType> dataType parseKnownValue(std::string& knownValue, const bool hex)
 		{
@@ -772,7 +773,7 @@ namespace MemoryCompare
 		}
 
 	public:
-		static void SetUp(const std::wstring& resultsDir, const uint16_t superiorDatatype, const uint16_t subsidiaryDatatype, const uint8_t addressWidth, const bool isSigned, const uint16_t alignment = 4, const bool swapBytes = false, const bool cached = false, const bool zip = false);
+		static void SetUp(const std::wstring& resultsDir, const uint16_t superiorDatatype, const uint16_t subsidiaryDatatype, const uint8_t addressWidth, const bool signedOrCaseSensitive, const uint16_t alignment = 4, const bool swapBytes = false, const bool cached = false, const bool zip = false);
 		static void NewIteration(const uint8_t condition, const bool hex, const bool isKnownValue, const uint16_t counterIteration, std::string& primaryKnownValue, std::string& secondaryKnownValue, const float precision = 1.0f);
 		static void ProcessNextRange(MemDump* range);
 		static const std::pair<uint64_t, uint16_t> GetSearchStats();

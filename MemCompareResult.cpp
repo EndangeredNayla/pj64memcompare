@@ -1,5 +1,6 @@
 #include"MemCompareResult.h"
 #include"MemCompare.h"
+#include<filesystem>
 
 MemoryCompare::MemCompareResults::MemCompareResults(std::wstring path, uint16_t iteration, uint8_t addressWidth, uint16_t valueWidth, uint16_t rangeCount, bool cached, bool zip)
 {
@@ -81,26 +82,34 @@ void MemoryCompare::MemCompareResults::SetAddressWidth(const uint8_t width)
 	_addressWidth = width;
 }
 
-void MemoryCompare::MemCompareResults::SetResultCount(uint32_t index, uint64_t count)
-{
-	_resultCounts[index] = count;
-}
-
 bool MemoryCompare::MemCompareResults::SaveResults(uint32_t rangeIndex, bool zipped)
 {
+	if (rangeIndex == -1)
+		return false;
+
+	if (_iteration < 2)
+	{
+		for (const auto& entry : std::filesystem::directory_iterator(_path))
+			std::filesystem::remove_all(entry.path());
+	}
+
 	createHeader(rangeIndex);
+	std::wstring path = _path + std::to_wstring(_iteration-1);
+	std::filesystem::create_directories(path);
+	path.append(L"\\" + std::to_wstring(rangeIndex) + L".bin");
 
-	if (!SaveBinary(_path, _fileHeaders[rangeIndex].data(), 32, false, zipped))
+	if (!SaveBinary(path, _fileHeaders[rangeIndex].data(), 32, false, zipped))
 		return false;
 
-	if (!SaveBinary(_path, &_addresses[rangeIndex * _valueWidth], _resultCounts[rangeIndex] * _addressWidth, true, zipped))
+	if (!SaveBinary(path, &_addresses[rangeIndex * _valueWidth], _resultCounts[rangeIndex] * _addressWidth, true, zipped))
 		return false;
 
-	if (!SaveBinary(_path, &_values[rangeIndex], _resultCounts[rangeIndex] * _valueWidth, true, zipped))
+	if (!SaveBinary(path, &_values[rangeIndex], _resultCounts[rangeIndex] * _valueWidth, true, zipped))
 		return false;
 
-	if (!SaveBinary(_path, &_previousValues[rangeIndex], _resultCounts[rangeIndex] * _valueWidth, true, zipped))
-		return false;
+	if(_iteration > 1)
+		if (!SaveBinary(path, &_previousValues[rangeIndex], _resultCounts[rangeIndex] * _valueWidth, true, zipped))
+			return false;
 
 	return true;
 }
@@ -164,9 +173,14 @@ bool MemoryCompare::MemCompareResults::LoadResults(bool zipped)
 	return true;
 }
 
-uint16_t MemoryCompare::MemCompareResults::GetValueWidth()
+uint16_t MemoryCompare::MemCompareResults::GetValueWidth() const
 {
 	return _valueWidth;
+}
+
+uint16_t MemoryCompare::MemCompareResults::GetRangeCount() const
+{
+	return _rangeCount;
 }
 
 void MemoryCompare::MemCompareResults::operator=(const MemCompareResults& other)

@@ -643,13 +643,13 @@ void MemoryCompare::MemCompare::setValueWidth()
 	}
 }
 	
-void MemoryCompare::MemCompare::SetUp(const std::wstring& resultsDir, const uint16_t superiorDatatype, const uint16_t subsidiaryDatatype, const uint8_t addressWidth, const bool isSigned, const uint16_t alignment, const bool swapBytes, const bool cached, const bool zip)
+void MemoryCompare::MemCompare::SetUp(const std::wstring& resultsDir, const uint16_t superiorDatatype, const uint16_t subsidiaryDatatype, const uint8_t addressWidth, const bool signedOrCaseSensitive, const uint16_t alignment, const bool swapBytes, const bool cached, const bool zip)
 {
 	GetInstance()._resultsDir = resultsDir;
 	GetInstance()._superiorDatatype = superiorDatatype;
 	GetInstance()._subsidiaryDatatype = subsidiaryDatatype;
 	GetInstance()._addressWidth = addressWidth;
-	GetInstance()._signedOrCaseSensitive = isSigned;
+	GetInstance()._signedOrCaseSensitive = signedOrCaseSensitive;
 	GetInstance()._alignment = alignment;
 	GetInstance()._swapBytes = swapBytes;
 	GetInstance()._cached = cached;
@@ -668,12 +668,18 @@ void MemoryCompare::MemCompare::NewIteration(const uint8_t condition, const bool
 	GetInstance()._counterIterationIndex = counterIteration - 1;
 
 	if (counterIteration < GetInstance()._iterationCount)
+	{
 		GetInstance()._results.erase(GetInstance()._results.begin() + counterIteration, GetInstance()._results.end());
+		GetInstance()._results.back().LoadResults(false);
+	}
 
 	if (GetInstance()._iterationCount)
 		GetInstance()._iterationCount = counterIteration + 1;
 	else
 		GetInstance()._iterationCount = 1;
+
+	if (GetInstance()._iterationCount > 2 && !GetInstance()._cached) //clear results more than 1 iteration ago
+		GetInstance()._results[GetInstance()._counterIterationIndex - 1].Clear();
 
 	GetInstance().setValueWidth();
 
@@ -689,8 +695,6 @@ void MemoryCompare::MemCompare::NewIteration(const uint8_t condition, const bool
 
 void MemoryCompare::MemCompare::ProcessNextRange(MemDump* range)
 {
-	uint64_t test = GetInstance()._results[GetInstance()._counterIterationIndex].GetRangeIndexOfStartingAddress(range->GetBaseAddress());
-
 	if (GetInstance()._iterationCount > 1)
 		GetInstance()._previousIterationRangeIndex = GetInstance()._results[GetInstance()._counterIterationIndex].GetRangeIndexOfStartingAddress(range->GetBaseAddress());
 
@@ -751,6 +755,9 @@ void MemoryCompare::MemCompare::ProcessNextRange(MemDump* range)
 		}
 	}
 
+	if (!GetInstance()._cached)
+		GetInstance().saveResults();
+
 	GetInstance()._resultCount = GetInstance()._results.back().GetTotalResultCount();
 }
 
@@ -793,4 +800,9 @@ void MemoryCompare::MemCompare::Reset()
 	GetInstance()._currentDumpAddress = nullptr;
 	GetInstance()._currentDumpSize = 0;
 	GetInstance()._currentBaseAddress = 0;
+}
+
+bool MemoryCompare::MemCompare::saveResults()
+{
+	return _results.back().SaveResults(_results.back().GetRangeCount() - 1, _zip);
 }
