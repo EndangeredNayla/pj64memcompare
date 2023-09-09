@@ -568,6 +568,7 @@ namespace MemoryCompare
 
 				for (uint64_t offsetDump = 0; offsetDump < _currentDumpSize - 2 * sizeof(float); offsetDump += _alignment)
 				{
+					addr = _currentBaseAddress + offsetDump;
 					for (int rgbaSelect = 0; rgbaSelect < colorValueCount; ++rgbaSelect)
 						readVal.SetColorValue<float>(byteReader(*reinterpret_cast<float*>(_currentDumpAddress + offsetDump + rgbaSelect * sizeof(float))), rgbaSelect);
 
