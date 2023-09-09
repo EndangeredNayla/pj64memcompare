@@ -217,7 +217,6 @@ namespace MemoryCompare
 		void Clear();
 		void SetValueWidth(const uint16_t width);
 		void SetAddressWidth(const uint8_t width);
-		void SetResultCount(uint32_t index, uint64_t count);
 		bool SaveResults(uint32_t rangeIndex, bool zipped);
 		bool LoadResults(bool zipped);
 		uint16_t GetValueWidth() const;
