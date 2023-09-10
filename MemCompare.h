@@ -223,7 +223,14 @@ namespace MemoryCompare
 				else
 					stream << knownValue;
 
-				stream >> val;
+				if constexpr (std::is_same_v<dataType, uint8_t> || std::is_same_v<dataType, int8_t>)
+				{
+					static uint16_t temp;
+					stream >> temp;
+					val = temp;
+				}
+				else
+					stream >> val;
 			}
 			else if constexpr (std::is_floating_point_v<dataType>)
 			{
