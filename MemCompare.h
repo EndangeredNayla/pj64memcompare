@@ -362,11 +362,6 @@ namespace MemoryCompare
 
 			for (uint64_t offsetDump = 0; offsetDump < _currentDumpSize; offsetDump += _alignment)
 			{
-				if (offsetDump == 0x17fff0)
-				{
-					test = offsetDump;
-				}
-
 				addr = offsetDump + _currentBaseAddress;
 				val = byteReader(*reinterpret_cast<dataType*>(_currentDumpAddress + offsetDump));
 				_results.back().PushBackResult<addressType, dataType>(addr, val);
