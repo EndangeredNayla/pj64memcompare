@@ -358,8 +358,6 @@ namespace MemoryCompare
 			DataAccess<dataType> byteReader;
 			byteReader.reader = _swapBytes ? DataAccess<dataType>::readReversed : DataAccess<dataType>::read;
 
-			int test = 0;
-
 			for (uint64_t offsetDump = 0; offsetDump < _currentDumpSize; offsetDump += _alignment)
 			{
 				addr = offsetDump + _currentBaseAddress;
