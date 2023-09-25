@@ -645,6 +645,8 @@ void MemoryCompare::MemCompare::setValueWidth()
 	
 void MemoryCompare::MemCompare::SetUp(const std::wstring& resultsDir, const uint16_t superiorDatatype, const uint16_t subsidiaryDatatype, const uint8_t addressWidth, const bool signedOrCaseSensitive, const uint16_t alignment, const bool swapBytes, const bool cached, const bool zip)
 {
+	MemCompareResults::SetResultsDir(resultsDir);
+	MemCompareResults::ClearResultsDir(-1);
 	GetInstance()._resultsDir = resultsDir;
 	GetInstance()._superiorDatatype = superiorDatatype;
 	GetInstance()._subsidiaryDatatype = subsidiaryDatatype;
@@ -773,6 +775,7 @@ MemoryCompare::MemCompareResults& MemoryCompare::MemCompare::GetResults()
 
 void MemoryCompare::MemCompare::Reset()
 {
+	MemCompareResults::ClearResultsDir(-1);
 	GetInstance()._results.clear();
 	GetInstance()._iterationCount = 0;
 	GetInstance()._resultCount = 0;

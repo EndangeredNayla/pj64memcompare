@@ -16,7 +16,7 @@ namespace MemoryCompare
 		std::vector<uint64_t> _startingAdresses;
 		std::vector<uint64_t> _resultCounts;
 		std::vector<std::string> _fileHeaders;
-		std::wstring _path;
+		static std::wstring _path;
 		uint16_t _rangeCount = 0;
 		uint64_t _totalResultCount = 0;
 		uint8_t _addressWidth = 0;
@@ -222,5 +222,7 @@ namespace MemoryCompare
 		uint16_t GetValueWidth() const;
 		void operator=(const MemCompareResults& other);
 		uint16_t GetRangeCount() const;
+		static void ClearResultsDir(const int iterationIndex);
+		static void SetResultsDir(const std::wstring& dir);
 	};
 }
