@@ -2,8 +2,6 @@
 #include"MemCompare.h"
 #include<filesystem>
 
-std::wstring MemoryCompare::MemCompareResults::_path = L"";
-
 MemoryCompare::MemCompareResults::MemCompareResults(std::wstring path, uint16_t iteration, uint8_t addressWidth, uint16_t valueWidth, uint16_t rangeCount, bool cached, bool zip)
 {
 	_path = path;
@@ -97,6 +95,9 @@ bool MemoryCompare::MemCompareResults::SaveResults(uint32_t rangeIndex, bool zip
 	if (!SaveBinary(path, _fileHeaders[rangeIndex].data(), 32, false, zipped))
 		return false;
 
+	if (_addresses.size() == 0)
+		return true;
+
 	if (!SaveBinary(path, &_addresses[rangeIndex * _valueWidth], _resultCounts[rangeIndex] * _addressWidth, true, zipped))
 		return false;
 
@@ -108,19 +109,6 @@ bool MemoryCompare::MemCompareResults::SaveResults(uint32_t rangeIndex, bool zip
 			return false;
 
 	return true;
-}
-
-void MemoryCompare::MemCompareResults::ClearResultsDir(const int iterationIndex)
-{
-	if(iterationIndex > -1)
-		for (const auto& entry : std::filesystem::directory_iterator(_path + std::to_wstring(iterationIndex)))
-		{
-			std::wcout << entry.path() << std::endl;
-			std::filesystem::remove_all(entry.path());
-		}
-	else
-		for (const auto& entry : std::filesystem::directory_iterator(_path))
-			std::filesystem::remove_all(entry.path());
 }
 
 bool MemoryCompare::MemCompareResults::LoadResults(bool zipped)
@@ -180,12 +168,6 @@ bool MemoryCompare::MemCompareResults::LoadResults(bool zipped)
 	}
 
 	return true;
-}
-
-
-void MemoryCompare::MemCompareResults::SetResultsDir(const std::wstring& dir)
-{
-	_path = dir;
 }
 
 uint16_t MemoryCompare::MemCompareResults::GetValueWidth() const
