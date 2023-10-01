@@ -406,14 +406,8 @@ namespace MemoryCompare
 			}
 			else //EQUAL, UNEQUAL, GREATER, GREATER_EQUAL, LOWER, LOWER_EQUAL
 			{
-				int test = 0;
 				for (uint64_t i = 0; i < _results[_counterIterationIndex].GetResultCountByRangeIndex(_previousIterationRangeIndex); ++i)
 				{
-					if (i == 0xc00000)
-					{
-						test = i;
-					}
-
 					addr = _results[_counterIterationIndex].GetAddressByRangeIndex<addressType>(_previousIterationRangeIndex, i);
 					oldval = _results[_counterIterationIndex].GetValueByRangeIndex<dataType>(_previousIterationRangeIndex, i);
 					readval = byteReader(*reinterpret_cast<dataType*>(_currentDumpAddress + addr - _currentBaseAddress));
