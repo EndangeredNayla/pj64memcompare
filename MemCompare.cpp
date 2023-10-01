@@ -10,13 +10,13 @@ void MemoryCompare::MemCompare::selectPrimitiveUnknownInitial()
 		switch (_addressWidth)
 		{
 		case 2:
-			_signedOrCaseSensitive ? primitiveUnknownInitial<uint16_t, int8_t>() : primitiveUnknownInitial<uint16_t, uint8_t>();
+			_setupFlags & SIGNED ? primitiveUnknownInitial<uint16_t, int8_t>() : primitiveUnknownInitial<uint16_t, uint8_t>();
 			break;
 		case 8:
-			_signedOrCaseSensitive ? primitiveUnknownInitial<uint64_t, int8_t>() : primitiveUnknownInitial<uint64_t, uint8_t>();
+			_setupFlags & SIGNED ? primitiveUnknownInitial<uint64_t, int8_t>() : primitiveUnknownInitial<uint64_t, uint8_t>();
 			break;
 		default:
-			_signedOrCaseSensitive ? primitiveUnknownInitial<uint32_t, int8_t>() : primitiveUnknownInitial<uint32_t, uint8_t>();
+			_setupFlags& SIGNED ? primitiveUnknownInitial<uint32_t, int8_t>() : primitiveUnknownInitial<uint32_t, uint8_t>();
 		}
 	}
 	break;
@@ -25,13 +25,13 @@ void MemoryCompare::MemCompare::selectPrimitiveUnknownInitial()
 		switch (_addressWidth)
 		{
 		case 2:
-			_signedOrCaseSensitive ? primitiveUnknownInitial<uint16_t, int16_t>() : primitiveUnknownInitial<uint16_t, uint16_t>();
+			_setupFlags & SIGNED ? primitiveUnknownInitial<uint16_t, int16_t>() : primitiveUnknownInitial<uint16_t, uint16_t>();
 			break;
 		case 8:
-			_signedOrCaseSensitive ? primitiveUnknownInitial<uint64_t, int16_t>() : primitiveUnknownInitial<uint64_t, uint16_t>();
+			_setupFlags & SIGNED ? primitiveUnknownInitial<uint64_t, int16_t>() : primitiveUnknownInitial<uint64_t, uint16_t>();
 			break;
 		default:
-			_signedOrCaseSensitive ? primitiveUnknownInitial<uint32_t, int16_t>() : primitiveUnknownInitial<uint32_t, uint16_t>();
+			_setupFlags& SIGNED ? primitiveUnknownInitial<uint32_t, int16_t>() : primitiveUnknownInitial<uint32_t, uint16_t>();
 		}
 	}
 	break;
@@ -40,13 +40,13 @@ void MemoryCompare::MemCompare::selectPrimitiveUnknownInitial()
 		switch (_addressWidth)
 		{
 		case 2:
-			_signedOrCaseSensitive ? primitiveUnknownInitial<uint16_t, int64_t>() : primitiveUnknownInitial<uint16_t, uint64_t>();
+			_setupFlags & SIGNED ? primitiveUnknownInitial<uint16_t, int64_t>() : primitiveUnknownInitial<uint16_t, uint64_t>();
 			break;
 		case 8:
-			_signedOrCaseSensitive ? primitiveUnknownInitial<uint64_t, int64_t>() : primitiveUnknownInitial<uint64_t, uint64_t>();
+			_setupFlags & SIGNED ? primitiveUnknownInitial<uint64_t, int64_t>() : primitiveUnknownInitial<uint64_t, uint64_t>();
 			break;
 		default:
-			_signedOrCaseSensitive ? primitiveUnknownInitial<uint32_t, int64_t>() : primitiveUnknownInitial<uint32_t, uint64_t>();
+			_setupFlags& SIGNED ? primitiveUnknownInitial<uint32_t, int64_t>() : primitiveUnknownInitial<uint32_t, uint64_t>();
 		}
 	}
 	break;
@@ -85,13 +85,13 @@ void MemoryCompare::MemCompare::selectPrimitiveUnknownInitial()
 		switch (_addressWidth)
 		{
 		case 2:
-			_signedOrCaseSensitive ? primitiveUnknownInitial<uint16_t, int32_t>() : primitiveUnknownInitial<uint16_t, uint32_t>();
+			_setupFlags & SIGNED ? primitiveUnknownInitial<uint16_t, int32_t>() : primitiveUnknownInitial<uint16_t, uint32_t>();
 			break;
 		case 8:
-			_signedOrCaseSensitive ? primitiveUnknownInitial<uint64_t, int32_t>() : primitiveUnknownInitial<uint64_t, uint32_t>();
+			_setupFlags & SIGNED ? primitiveUnknownInitial<uint64_t, int32_t>() : primitiveUnknownInitial<uint64_t, uint32_t>();
 			break;
 		default:
-			_signedOrCaseSensitive ? primitiveUnknownInitial<uint32_t, int32_t>() : primitiveUnknownInitial<uint32_t, uint32_t>();
+			_setupFlags& SIGNED ? primitiveUnknownInitial<uint32_t, int32_t>() : primitiveUnknownInitial<uint32_t, uint32_t>();
 		}
 	}
 	}
@@ -106,13 +106,13 @@ void MemoryCompare::MemCompare::selectPrimitiveUnknownSuccessive()
 		switch (_addressWidth)
 		{
 		case 2:
-			_signedOrCaseSensitive ? primitiveUnknownSuccessive<uint16_t, int8_t>() : primitiveUnknownSuccessive<uint16_t, uint8_t>();
+			_setupFlags & SIGNED ? primitiveUnknownSuccessive<uint16_t, int8_t>() : primitiveUnknownSuccessive<uint16_t, uint8_t>();
 			break;
 		case 8:
-			_signedOrCaseSensitive ? primitiveUnknownSuccessive<uint64_t, int8_t>() : primitiveUnknownSuccessive<uint64_t, uint8_t>();
+			_setupFlags & SIGNED ? primitiveUnknownSuccessive<uint64_t, int8_t>() : primitiveUnknownSuccessive<uint64_t, uint8_t>();
 			break;
 		default:
-			_signedOrCaseSensitive ? primitiveUnknownSuccessive<uint32_t, int8_t>() : primitiveUnknownSuccessive<uint32_t, uint8_t>();
+			_setupFlags& SIGNED ? primitiveUnknownSuccessive<uint32_t, int8_t>() : primitiveUnknownSuccessive<uint32_t, uint8_t>();
 		}
 	}
 	break;
@@ -121,13 +121,13 @@ void MemoryCompare::MemCompare::selectPrimitiveUnknownSuccessive()
 		switch (_addressWidth)
 		{
 		case 2:
-			_signedOrCaseSensitive ? primitiveUnknownSuccessive<uint16_t, int16_t>() : primitiveUnknownSuccessive<uint16_t, uint16_t>();
+			_setupFlags & SIGNED ? primitiveUnknownSuccessive<uint16_t, int16_t>() : primitiveUnknownSuccessive<uint16_t, uint16_t>();
 			break;
 		case 8:
-			_signedOrCaseSensitive ? primitiveUnknownSuccessive<uint64_t, int16_t>() : primitiveUnknownSuccessive<uint64_t, uint16_t>();
+			_setupFlags & SIGNED ? primitiveUnknownSuccessive<uint64_t, int16_t>() : primitiveUnknownSuccessive<uint64_t, uint16_t>();
 			break;
 		default:
-			_signedOrCaseSensitive ? primitiveUnknownSuccessive<uint32_t, int16_t>() : primitiveUnknownSuccessive<uint32_t, uint16_t>();
+			_setupFlags& SIGNED ? primitiveUnknownSuccessive<uint32_t, int16_t>() : primitiveUnknownSuccessive<uint32_t, uint16_t>();
 		}
 	}
 	break;
@@ -136,13 +136,13 @@ void MemoryCompare::MemCompare::selectPrimitiveUnknownSuccessive()
 		switch (_addressWidth)
 		{
 		case 2:
-			_signedOrCaseSensitive ? primitiveUnknownSuccessive<uint16_t, int64_t>() : primitiveUnknownSuccessive<uint16_t, uint64_t>();
+			_setupFlags & SIGNED ? primitiveUnknownSuccessive<uint16_t, int64_t>() : primitiveUnknownSuccessive<uint16_t, uint64_t>();
 			break;
 		case 8:
-			_signedOrCaseSensitive ? primitiveUnknownSuccessive<uint64_t, int64_t>() : primitiveUnknownSuccessive<uint64_t, uint64_t>();
+			_setupFlags & SIGNED ? primitiveUnknownSuccessive<uint64_t, int64_t>() : primitiveUnknownSuccessive<uint64_t, uint64_t>();
 			break;
 		default:
-			_signedOrCaseSensitive ? primitiveUnknownSuccessive<uint32_t, int64_t>() : primitiveUnknownSuccessive<uint32_t, uint64_t>();
+			_setupFlags& SIGNED ? primitiveUnknownSuccessive<uint32_t, int64_t>() : primitiveUnknownSuccessive<uint32_t, uint64_t>();
 		}
 	}
 	break;
@@ -181,13 +181,13 @@ void MemoryCompare::MemCompare::selectPrimitiveUnknownSuccessive()
 		switch (_addressWidth)
 		{
 		case 2:
-			_signedOrCaseSensitive ? primitiveUnknownSuccessive<uint16_t, int32_t>() : primitiveUnknownSuccessive<uint16_t, uint32_t>();
+			_setupFlags & SIGNED ? primitiveUnknownSuccessive<uint16_t, int32_t>() : primitiveUnknownSuccessive<uint16_t, uint32_t>();
 			break;
 		case 8:
-			_signedOrCaseSensitive ? primitiveUnknownSuccessive<uint64_t, int32_t>() : primitiveUnknownSuccessive<uint64_t, uint32_t>();
+			_setupFlags & SIGNED ? primitiveUnknownSuccessive<uint64_t, int32_t>() : primitiveUnknownSuccessive<uint64_t, uint32_t>();
 			break;
 		default:
-			_signedOrCaseSensitive ? primitiveUnknownSuccessive<uint32_t, int32_t>() : primitiveUnknownSuccessive<uint32_t, uint32_t>();
+			_setupFlags& SIGNED ? primitiveUnknownSuccessive<uint32_t, int32_t>() : primitiveUnknownSuccessive<uint32_t, uint32_t>();
 		}
 	}
 	}
@@ -202,13 +202,13 @@ void MemoryCompare::MemCompare::selectPrimitiveKnownInitial()
 		switch (_addressWidth)
 		{
 		case 2:
-			_signedOrCaseSensitive ? primitiveKnownInitial<uint16_t, int8_t>() : primitiveKnownInitial<uint16_t, uint8_t>();
+			_setupFlags & SIGNED ? primitiveKnownInitial<uint16_t, int8_t>() : primitiveKnownInitial<uint16_t, uint8_t>();
 			break;
 		case 8:
-			_signedOrCaseSensitive ? primitiveKnownInitial<uint64_t, int8_t>() : primitiveKnownInitial<uint64_t, uint8_t>();
+			_setupFlags & SIGNED ? primitiveKnownInitial<uint64_t, int8_t>() : primitiveKnownInitial<uint64_t, uint8_t>();
 			break;
 		default:
-			_signedOrCaseSensitive ? primitiveKnownInitial<uint32_t, int8_t>() : primitiveKnownInitial<uint32_t, uint8_t>();
+			_setupFlags& SIGNED ? primitiveKnownInitial<uint32_t, int8_t>() : primitiveKnownInitial<uint32_t, uint8_t>();
 		}
 	}
 	break;
@@ -217,13 +217,13 @@ void MemoryCompare::MemCompare::selectPrimitiveKnownInitial()
 		switch (_addressWidth)
 		{
 		case 2:
-			_signedOrCaseSensitive ? primitiveKnownInitial<uint16_t, int16_t>() : primitiveKnownInitial<uint16_t, uint16_t>();
+			_setupFlags & SIGNED ? primitiveKnownInitial<uint16_t, int16_t>() : primitiveKnownInitial<uint16_t, uint16_t>();
 			break;
 		case 8:
-			_signedOrCaseSensitive ? primitiveKnownInitial<uint64_t, int16_t>() : primitiveKnownInitial<uint64_t, uint16_t>();
+			_setupFlags & SIGNED ? primitiveKnownInitial<uint64_t, int16_t>() : primitiveKnownInitial<uint64_t, uint16_t>();
 			break;
 		default:
-			_signedOrCaseSensitive ? primitiveKnownInitial<uint32_t, int16_t>() : primitiveKnownInitial<uint32_t, uint16_t>();
+			_setupFlags& SIGNED ? primitiveKnownInitial<uint32_t, int16_t>() : primitiveKnownInitial<uint32_t, uint16_t>();
 		}
 	}
 	break;
@@ -232,13 +232,13 @@ void MemoryCompare::MemCompare::selectPrimitiveKnownInitial()
 		switch (_addressWidth)
 		{
 		case 2:
-			_signedOrCaseSensitive ? primitiveKnownInitial<uint16_t, int64_t>() : primitiveKnownInitial<uint16_t, uint64_t>();
+			_setupFlags & SIGNED ? primitiveKnownInitial<uint16_t, int64_t>() : primitiveKnownInitial<uint16_t, uint64_t>();
 			break;
 		case 8:
-			_signedOrCaseSensitive ? primitiveKnownInitial<uint64_t, int64_t>() : primitiveKnownInitial<uint64_t, uint64_t>();
+			_setupFlags & SIGNED ? primitiveKnownInitial<uint64_t, int64_t>() : primitiveKnownInitial<uint64_t, uint64_t>();
 			break;
 		default:
-			_signedOrCaseSensitive ? primitiveKnownInitial<uint32_t, int64_t>() : primitiveKnownInitial<uint32_t, uint64_t>();
+			_setupFlags& SIGNED ? primitiveKnownInitial<uint32_t, int64_t>() : primitiveKnownInitial<uint32_t, uint64_t>();
 		}
 	}
 	break;
@@ -277,13 +277,13 @@ void MemoryCompare::MemCompare::selectPrimitiveKnownInitial()
 		switch (_addressWidth)
 		{
 		case 2:
-			_signedOrCaseSensitive ? primitiveKnownInitial<uint16_t, int32_t>() : primitiveKnownInitial<uint16_t, uint32_t>();
+			_setupFlags & SIGNED ? primitiveKnownInitial<uint16_t, int32_t>() : primitiveKnownInitial<uint16_t, uint32_t>();
 			break;
 		case 8:
-			_signedOrCaseSensitive ? primitiveKnownInitial<uint64_t, int32_t>() : primitiveKnownInitial<uint64_t, uint32_t>();
+			_setupFlags & SIGNED ? primitiveKnownInitial<uint64_t, int32_t>() : primitiveKnownInitial<uint64_t, uint32_t>();
 			break;
 		default:
-			_signedOrCaseSensitive ? primitiveKnownInitial<uint32_t, int32_t>() : primitiveKnownInitial<uint32_t, uint32_t>();
+			_setupFlags& SIGNED ? primitiveKnownInitial<uint32_t, int32_t>() : primitiveKnownInitial<uint32_t, uint32_t>();
 		}
 	}
 	}
@@ -298,13 +298,13 @@ void MemoryCompare::MemCompare::selectPrimitiveKnownSuccessive()
 		switch (_addressWidth)
 		{
 		case 2:
-			_signedOrCaseSensitive ? primitiveKnownSuccessive<uint16_t, int8_t>() : primitiveKnownSuccessive<uint16_t, uint8_t>();
+			_setupFlags & SIGNED ? primitiveKnownSuccessive<uint16_t, int8_t>() : primitiveKnownSuccessive<uint16_t, uint8_t>();
 			break;
 		case 8:
-			_signedOrCaseSensitive ? primitiveKnownSuccessive<uint64_t, int8_t>() : primitiveKnownSuccessive<uint64_t, uint8_t>();
+			_setupFlags & SIGNED ? primitiveKnownSuccessive<uint64_t, int8_t>() : primitiveKnownSuccessive<uint64_t, uint8_t>();
 			break;
 		default:
-			_signedOrCaseSensitive ? primitiveKnownSuccessive<uint32_t, int8_t>() : primitiveKnownSuccessive<uint32_t, uint8_t>();
+			_setupFlags& SIGNED ? primitiveKnownSuccessive<uint32_t, int8_t>() : primitiveKnownSuccessive<uint32_t, uint8_t>();
 		}
 	}
 	break;
@@ -313,13 +313,13 @@ void MemoryCompare::MemCompare::selectPrimitiveKnownSuccessive()
 		switch (_addressWidth)
 		{
 		case 2:
-			_signedOrCaseSensitive ? primitiveKnownSuccessive<uint16_t, int16_t>() : primitiveKnownSuccessive<uint16_t, uint16_t>();
+			_setupFlags & SIGNED ? primitiveKnownSuccessive<uint16_t, int16_t>() : primitiveKnownSuccessive<uint16_t, uint16_t>();
 			break;
 		case 8:
-			_signedOrCaseSensitive ? primitiveKnownSuccessive<uint64_t, int16_t>() : primitiveKnownSuccessive<uint64_t, uint16_t>();
+			_setupFlags & SIGNED ? primitiveKnownSuccessive<uint64_t, int16_t>() : primitiveKnownSuccessive<uint64_t, uint16_t>();
 			break;
 		default:
-			_signedOrCaseSensitive ? primitiveKnownSuccessive<uint32_t, int16_t>() : primitiveKnownSuccessive<uint32_t, uint16_t>();
+			_setupFlags& SIGNED ? primitiveKnownSuccessive<uint32_t, int16_t>() : primitiveKnownSuccessive<uint32_t, uint16_t>();
 		}
 	}
 	break;
@@ -328,13 +328,13 @@ void MemoryCompare::MemCompare::selectPrimitiveKnownSuccessive()
 		switch (_addressWidth)
 		{
 		case 2:
-			_signedOrCaseSensitive ? primitiveKnownSuccessive<uint16_t, int64_t>() : primitiveKnownSuccessive<uint16_t, uint64_t>();
+			_setupFlags & SIGNED ? primitiveKnownSuccessive<uint16_t, int64_t>() : primitiveKnownSuccessive<uint16_t, uint64_t>();
 			break;
 		case 8:
-			_signedOrCaseSensitive ? primitiveKnownSuccessive<uint64_t, int64_t>() : primitiveKnownSuccessive<uint64_t, uint64_t>();
+			_setupFlags & SIGNED ? primitiveKnownSuccessive<uint64_t, int64_t>() : primitiveKnownSuccessive<uint64_t, uint64_t>();
 			break;
 		default:
-			_signedOrCaseSensitive ? primitiveKnownSuccessive<uint32_t, int64_t>() : primitiveKnownSuccessive<uint32_t, uint64_t>();
+			_setupFlags& SIGNED ? primitiveKnownSuccessive<uint32_t, int64_t>() : primitiveKnownSuccessive<uint32_t, uint64_t>();
 		}
 	}
 	break;
@@ -373,13 +373,13 @@ void MemoryCompare::MemCompare::selectPrimitiveKnownSuccessive()
 		switch (_addressWidth)
 		{
 		case 2:
-			_signedOrCaseSensitive ? primitiveKnownSuccessive<uint16_t, int32_t>() : primitiveKnownSuccessive<uint16_t, uint32_t>();
+			_setupFlags & SIGNED ? primitiveKnownSuccessive<uint16_t, int32_t>() : primitiveKnownSuccessive<uint16_t, uint32_t>();
 			break;
 		case 8:
-			_signedOrCaseSensitive ? primitiveKnownSuccessive<uint64_t, int32_t>() : primitiveKnownSuccessive<uint64_t, uint32_t>();
+			_setupFlags & SIGNED ? primitiveKnownSuccessive<uint64_t, int32_t>() : primitiveKnownSuccessive<uint64_t, uint32_t>();
 			break;
 		default:
-			_signedOrCaseSensitive ? primitiveKnownSuccessive<uint32_t, int32_t>() : primitiveKnownSuccessive<uint32_t, uint32_t>();
+			_setupFlags& SIGNED ? primitiveKnownSuccessive<uint32_t, int32_t>() : primitiveKnownSuccessive<uint32_t, uint32_t>();
 		}
 	}
 	}
@@ -643,7 +643,7 @@ void MemoryCompare::MemCompare::setValueWidth()
 	}
 }
 	
-void MemoryCompare::MemCompare::SetUp(const std::wstring& resultsDir, const uint16_t superiorDatatype, const uint16_t subsidiaryDatatype, const uint8_t addressWidth, const bool signedOrCaseSensitive, const uint16_t alignment, const bool swapBytes, const bool cached, const bool zip)
+void MemoryCompare::MemCompare::SetUp(const std::wstring& resultsDir, const uint16_t superiorDatatype, const uint16_t subsidiaryDatatype, const uint8_t addressWidth, const uint16_t alignment, const uint32_t setupFlags)
 {
 	MemCompareResults::SetResultsDir(resultsDir);
 	MemCompareResults::ClearResultsDir(-1);
@@ -651,18 +651,14 @@ void MemoryCompare::MemCompare::SetUp(const std::wstring& resultsDir, const uint
 	GetInstance()._superiorDatatype = superiorDatatype;
 	GetInstance()._subsidiaryDatatype = subsidiaryDatatype;
 	GetInstance()._addressWidth = addressWidth;
-	GetInstance()._signedOrCaseSensitive = signedOrCaseSensitive;
+	GetInstance()._setupFlags = setupFlags;
 	GetInstance()._alignment = alignment;
-	GetInstance()._swapBytes = swapBytes;
-	GetInstance()._cached = cached;
-	GetInstance()._zip = zip;
 }
 
-void MemoryCompare::MemCompare::NewIteration(const uint8_t condition, const bool hex, const bool isKnownValue, const uint16_t counterIteration, std::string& primaryKnownValue, std::string& secondaryKnownValue, const float precision)
+void MemoryCompare::MemCompare::NewIteration(const uint8_t condition, const uint16_t counterIteration, std::string& primaryKnownValue, std::string& secondaryKnownValue, const float precision, const uint32_t iterationFlags)
 {
 	GetInstance()._condition = condition;
-	GetInstance()._hex = hex;
-	GetInstance()._isKnownValue = isKnownValue;
+	GetInstance()._iterationFlags = iterationFlags;
 	GetInstance()._primaryKnownValueStr = primaryKnownValue;
 	GetInstance()._secondaryKnownValueStr = secondaryKnownValue;
 	GetInstance()._precision = precision;
@@ -680,7 +676,7 @@ void MemoryCompare::MemCompare::NewIteration(const uint8_t condition, const bool
 	else
 		GetInstance()._iterationCount = 1;
 
-	if (GetInstance()._iterationCount > 2 && !GetInstance()._cached) //clear results more than 1 iteration ago
+	if (GetInstance()._iterationCount > 2 && !GetInstance()._setupFlags & CACHED) //clear results more than 1 iteration ago
 		GetInstance()._results[GetInstance()._counterIterationIndex - 1].Clear();
 
 	GetInstance().setValueWidth();
@@ -743,21 +739,21 @@ void MemoryCompare::MemCompare::ProcessNextRange(MemDump* range)
 	{
 		if (GetInstance()._iterationCount < 2)
 		{
-			if (GetInstance()._isKnownValue)
+			if (GetInstance()._iterationFlags & KNOWN)
 				GetInstance().selectPrimitiveKnownInitial();
 			else
 				GetInstance().selectPrimitiveUnknownInitial();
 		}
 		else
 		{
-			if (GetInstance()._isKnownValue)
+			if (GetInstance()._iterationFlags & KNOWN)
 				GetInstance().selectPrimitiveKnownSuccessive();
 			else
 				GetInstance().selectPrimitiveUnknownSuccessive();
 		}
 	}
 
-	if (!GetInstance()._cached)
+	if (!GetInstance()._setupFlags & CACHED)
 		GetInstance().saveResults();
 
 	GetInstance()._resultCount = GetInstance()._results.back().GetTotalResultCount();
@@ -784,19 +780,15 @@ void MemoryCompare::MemCompare::Reset()
 	GetInstance()._subsidiaryDatatype = 2;
 	GetInstance()._addressWidth = 4;
 	GetInstance()._valueWidth = 4;
-	GetInstance()._signedOrCaseSensitive = true;
+	GetInstance()._setupFlags = 0;
 	GetInstance()._rangeCount = 0;
 	GetInstance()._alignment = 4;
-	GetInstance()._swapBytes = false;
-	GetInstance()._cached = false;
-	GetInstance()._zip = false;
 	GetInstance()._primaryKnownValueStr.clear();
 	GetInstance()._secondaryKnownValueStr.clear();
 	GetInstance()._condition = 0;
-	GetInstance()._isKnownValue = false;
+	GetInstance()._iterationFlags = 0;
 	GetInstance()._counterIteration = 0;
 	GetInstance()._precision = 1.0f;
-	GetInstance()._hex = false;
 	GetInstance()._counterIterationIndex = 0;
 	GetInstance()._rangeCount = 0;
 	GetInstance()._previousIterationRangeIndex = -1;
@@ -807,5 +799,5 @@ void MemoryCompare::MemCompare::Reset()
 
 bool MemoryCompare::MemCompare::saveResults()
 {
-	return _results.back().SaveResults(_results.back().GetRangeCount() - 1, _zip);
+	return _results.back().SaveResults(_results.back().GetRangeCount() - 1, _setupFlags & ZIP_RESULTS);
 }

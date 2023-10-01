@@ -28,12 +28,6 @@ namespace MemoryCompare
 		OR = 11,
 	};
 
-	enum ComparasionTypes
-	{
-		UNKNOWN = 0,
-		KNOWN = 1
-	};
-
 	enum ValueType
 	{
 		PRIMITIVE = 0,
@@ -51,6 +45,22 @@ namespace MemoryCompare
 		FLOAT = 4,
 		DOUBLE = 5,
 		BOOL = 6 //todo
+	};
+
+	enum SetupFlags
+	{
+		SIGNED = 1,
+		CASE_SENSITIVE = 1 << 1,
+		BIG_ENDIAN = 1 << 2,
+		REWIND_ENABLED = 1 << 3,
+		CACHED = 1 << 4,
+		ZIP_RESULTS = 1 << 5
+	};
+
+	enum IterationFlags
+	{
+		KNOWN = 1,
+		HEX = 1 << 1
 	};
 
 	template<typename T> static inline T SwapBytes(T val)
@@ -171,26 +181,22 @@ namespace MemoryCompare
 		uint64_t _resultCount = 0;
 
 		//Main SetUp
+		uint32_t _setupFlags = 0;
 		std::wstring _resultsDir;
 		uint16_t _superiorDatatype = 0;
 		uint16_t _subsidiaryDatatype = 2;
 		uint8_t _addressWidth = 4;
 		uint8_t _valueWidth = 4;
-		bool _signedOrCaseSensitive = true;
-		uint16_t _alignment = 4; 
-		bool _swapBytes = false;
-		bool _cached = false;
-		bool _zip = false;
+		uint16_t _alignment = 4;
 		std::string _primaryKnownValueStr;
 		std::string _secondaryKnownValueStr;
 		
 		//Iteration
+		uint32_t _iterationFlags = 0;
 		uint8_t _condition = 0;
-		bool _isKnownValue = false;
 		uint16_t _counterIteration = 0;
 		uint16_t _counterIterationIndex = 0;
 		float _precision = 1.0f;
-		bool _hex = false;
 
 		//current range
 		uint16_t _rangeCount = 0;
@@ -356,7 +362,7 @@ namespace MemoryCompare
 			addressType addr;
 			dataType val;
 			DataAccess<dataType> byteReader;
-			byteReader.reader = _swapBytes ? DataAccess<dataType>::readReversed : DataAccess<dataType>::read;
+			byteReader.reader = _setupFlags & BIG_ENDIAN ? DataAccess<dataType>::readReversed : DataAccess<dataType>::read;
 
 			for (uint64_t offsetDump = 0; offsetDump < _currentDumpSize; offsetDump += _alignment)
 			{
@@ -374,11 +380,11 @@ namespace MemoryCompare
 			CompareOperator<dataType> comparisonOperator;
 			setUpComparasionOperator<dataType>(comparisonOperator);
 			DataAccess<dataType> byteReader;
-			byteReader.reader = _swapBytes ? DataAccess<dataType>::readReversed : DataAccess<dataType>::read;
+			byteReader.reader = _setupFlags & BIG_ENDIAN ? DataAccess<dataType>::readReversed : DataAccess<dataType>::read;
 			
 			if (_condition == INCREASED_BY || _condition == DECREASED_BY)
 			{
-				const dataType increamentVal = parseKnownValue<dataType>(_primaryKnownValueStr, _hex);
+				const dataType increamentVal = parseKnownValue<dataType>(_primaryKnownValueStr, _iterationFlags & HEX);
 
 				for (uint64_t i = 0; i < _results[_counterIterationIndex].GetResultCountByRangeIndex(_previousIterationRangeIndex); ++i)
 				{
@@ -430,15 +436,15 @@ namespace MemoryCompare
 		{
 			addressType addr;
 			dataType readVal;
-			dataType primaryKnownVal = parseKnownValue<dataType>(_primaryKnownValueStr, _hex);
+			dataType primaryKnownVal = parseKnownValue<dataType>(_primaryKnownValueStr, _iterationFlags & HEX);
 			CompareOperator<dataType> comparisonOperator;
 			setUpComparasionOperator<dataType>(comparisonOperator);
 			DataAccess<dataType> byteReader;
-			byteReader.reader = _swapBytes ? DataAccess<dataType>::readReversed : DataAccess<dataType>::read;
+			byteReader.reader = _setupFlags & BIG_ENDIAN ? DataAccess<dataType>::readReversed : DataAccess<dataType>::read;
 			
 			if (_condition == INCREASED_BY || _condition == DECREASED_BY || _condition == BETWEEN || _condition == NOT_BETWEEN)
 			{
-				dataType secondaryKnownVal = parseKnownValue<dataType>(_secondaryKnownValueStr, _hex);
+				dataType secondaryKnownVal = parseKnownValue<dataType>(_secondaryKnownValueStr, _iterationFlags & HEX);
 
 				for (uint64_t offsetDump = 0; offsetDump < _currentDumpSize; offsetDump += _alignment)
 				{
@@ -483,15 +489,15 @@ namespace MemoryCompare
 			addressType addr;
 			dataType readVal;
 			dataType oldVal;
-			dataType primaryKnownVal = parseKnownValue<dataType>(_primaryKnownValueStr, _hex);
+			dataType primaryKnownVal = parseKnownValue<dataType>(_primaryKnownValueStr, _iterationFlags & HEX);
 			CompareOperator<dataType> comparisonOperator;
 			setUpComparasionOperator<dataType>(comparisonOperator);
 			DataAccess<dataType> byteReader;
-			byteReader.reader = _swapBytes ? DataAccess<dataType>::readReversed : DataAccess<dataType>::read;
+			byteReader.reader = _setupFlags & BIG_ENDIAN ? DataAccess<dataType>::readReversed : DataAccess<dataType>::read;
 
 			if (_condition == INCREASED_BY || _condition == DECREASED_BY || _condition == BETWEEN || _condition == NOT_BETWEEN)
 			{
-				dataType secondaryKnownVal = parseKnownValue<dataType>(_primaryKnownValueStr, _hex);
+				dataType secondaryKnownVal = parseKnownValue<dataType>(_primaryKnownValueStr, _iterationFlags & HEX);
 
 				for (uint64_t i = 0; i < _results[_counterIterationIndex].GetResultCountByRangeIndex(_previousIterationRangeIndex); ++i)
 				{
@@ -547,7 +553,7 @@ namespace MemoryCompare
 			case LitColor::RGB565:
 			{
 				DataAccess<uint16_t> byteReader;
-				byteReader.reader = _swapBytes ? DataAccess<uint16_t>::readReversed : DataAccess<uint16_t>::read;
+				byteReader.reader = _setupFlags & BIG_ENDIAN ? DataAccess<uint16_t>::readReversed : DataAccess<uint16_t>::read;
 
 				for (uint64_t offsetDump = 0; offsetDump < _currentDumpSize; offsetDump += _alignment)
 				{
@@ -562,7 +568,7 @@ namespace MemoryCompare
 			case LitColor::RGBF: case LitColor::RGBAF:
 			{
 				DataAccess<float> byteReader;
-				byteReader.reader = _swapBytes ? DataAccess<float>::readReversed : DataAccess<float>::read;
+				byteReader.reader = _setupFlags & BIG_ENDIAN ? DataAccess<float>::readReversed : DataAccess<float>::read;
 				const int colorValueCount = (knownVal.UsesAlpha() ? 4 : 3);
 				static float colorBuf[4];
 
@@ -585,7 +591,7 @@ namespace MemoryCompare
 			default: //RGB888, RGBA8888
 			{
 				DataAccess<uint32_t> byteReader;
-				byteReader.reader = _swapBytes ? DataAccess<uint32_t>::readReversed : DataAccess<uint32_t>::read;
+				byteReader.reader = _setupFlags & BIG_ENDIAN ? DataAccess<uint32_t>::readReversed : DataAccess<uint32_t>::read;
 
 				for (uint64_t offsetDump = 0; offsetDump < _currentDumpSize; offsetDump += _alignment)
 				{
@@ -612,7 +618,7 @@ namespace MemoryCompare
 			case LitColor::RGB565:
 			{
 				DataAccess<uint16_t> byteReader;
-				byteReader.reader = _swapBytes ? DataAccess<uint16_t>::readReversed : DataAccess<uint16_t>::read;
+				byteReader.reader = _setupFlags & BIG_ENDIAN ? DataAccess<uint16_t>::readReversed : DataAccess<uint16_t>::read;
 
 				for (uint64_t i = 0; i < _results[_counterIterationIndex].GetResultCountByRangeIndex(_previousIterationRangeIndex); ++i)
 				{
@@ -627,7 +633,7 @@ namespace MemoryCompare
 			case LitColor::RGBF: case LitColor::RGBAF:
 			{
 				DataAccess<float> byteReader;
-				byteReader.reader = _swapBytes ? DataAccess<float>::readReversed : DataAccess<float>::read;
+				byteReader.reader = _setupFlags & BIG_ENDIAN ? DataAccess<float>::readReversed : DataAccess<float>::read;
 				const int colorValueCount = (knownVal.UsesAlpha() ? 4 : 3);
 				float colorBuf[4];
 
@@ -650,7 +656,7 @@ namespace MemoryCompare
 			break;
 			default:  //RGB888, RGBA8888
 				DataAccess<uint32_t> byteReader;
-				byteReader.reader = _swapBytes ? DataAccess<uint32_t>::readReversed : DataAccess<uint32_t>::read;
+				byteReader.reader = _setupFlags & BIG_ENDIAN ? DataAccess<uint32_t>::readReversed : DataAccess<uint32_t>::read;
 
 				for (uint64_t i = 0; i < _results[_counterIterationIndex].GetResultCountByRangeIndex(_previousIterationRangeIndex); ++i)
 				{
@@ -668,7 +674,7 @@ namespace MemoryCompare
 			addressType addr;
 			MorphText knownVal;
 			DataAccess<uint32_t> byteReader;
-			byteReader.reader = _swapBytes ? DataAccess<uint32_t>::readReversed : DataAccess<uint32_t>::read;
+			byteReader.reader = _setupFlags & BIG_ENDIAN ? DataAccess<uint32_t>::readReversed : DataAccess<uint32_t>::read;
 			MorphText knownValUTF8(_primaryKnownValueStr);
 			const int charCount = _primaryKnownValueStr.size();
 			const bool isBigEndian = _subsidiaryDatatype == MorphText::UTF16BE || _subsidiaryDatatype == MorphText::UTF32BE;
@@ -684,7 +690,7 @@ namespace MemoryCompare
 				{
 					memcpy(buf.data(), _currentDumpAddress + offsetDump, charCount);
 
-					if (knownVal.Compare(buf.data(), _signedOrCaseSensitive, isBigEndian))
+					if (knownVal.Compare(buf.data(), _setupFlags & CASE_SENSITIVE, isBigEndian))
 					{
 						addr = _currentBaseAddress + offsetDump;
 						_results.back().PushBackResultByPtr<addressType>(addr, reinterpret_cast<char*>(buf.data()));
@@ -699,7 +705,7 @@ namespace MemoryCompare
 				{
 					memcpy(buf.data(), _currentDumpAddress + offsetDump, charCount);
 
-					if (knownVal.Compare(buf.data(), _signedOrCaseSensitive, isBigEndian))
+					if (knownVal.Compare(buf.data(), _setupFlags & CASE_SENSITIVE, isBigEndian))
 					{
 						addr = _currentBaseAddress + offsetDump;
 						_results.back().PushBackResultByPtr<addressType>(addr, reinterpret_cast<char*>(buf.data()));
@@ -714,7 +720,7 @@ namespace MemoryCompare
 				{
 					memcpy(buf.data(), _currentDumpAddress + offsetDump, charCount);
 
-					if (knownValUTF8.Compare(buf.c_str(), _signedOrCaseSensitive, _subsidiaryDatatype))
+					if (knownValUTF8.Compare(buf.c_str(), _setupFlags & CASE_SENSITIVE, _subsidiaryDatatype))
 					{
 						addr = _currentBaseAddress + offsetDump;
 						buf.append("\0");
@@ -734,7 +740,7 @@ namespace MemoryCompare
 			CompareOperator<OperativeArray<arrayType>> comparisonOperator;
 			setUpComparasionOperator<OperativeArray<arrayType>>(comparisonOperator);
 			DataAccess<arrayType> byteReader;
-			byteReader.reader = _swapBytes ? DataAccess<arrayType>::readReversed : DataAccess<arrayType>::read;
+			byteReader.reader = _setupFlags & BIG_ENDIAN ? DataAccess<arrayType>::readReversed : DataAccess<arrayType>::read;
 
 			for (uint64_t offsetDump = 0; offsetDump < _currentDumpSize - (readArr.ItemCount()-1) * sizeof(arrayType); offsetDump += _alignment)
 			{
@@ -758,7 +764,7 @@ namespace MemoryCompare
 			setUpComparasionOperator<OperativeArray<arrayType>>(comparisonOperator);
 			OperativeArray<arrayType>readArr(static_cast<arrayType>(0), itemCount);
 			DataAccess<arrayType> byteReader;
-			byteReader.reader = _swapBytes ? DataAccess<arrayType>::readReversed : DataAccess<arrayType>::read;
+			byteReader.reader = _setupFlags & BIG_ENDIAN ? DataAccess<arrayType>::readReversed : DataAccess<arrayType>::read;
 			const uint16_t counterIterationIndex = _counterIteration - 1;
 
 			for (uint64_t i = 0; i < _results[_counterIterationIndex].GetResultCountByRangeIndex(_previousIterationRangeIndex); ++i)
@@ -774,8 +780,8 @@ namespace MemoryCompare
 		}
 
 	public:
-		static void SetUp(const std::wstring& resultsDir, const uint16_t superiorDatatype, const uint16_t subsidiaryDatatype, const uint8_t addressWidth, const bool signedOrCaseSensitive, const uint16_t alignment = 4, const bool swapBytes = false, const bool cached = false, const bool zip = false);
-		static void NewIteration(const uint8_t condition, const bool hex, const bool isKnownValue, const uint16_t counterIteration, std::string& primaryKnownValue, std::string& secondaryKnownValue, const float precision = 1.0f);
+		static void SetUp(const std::wstring& resultsDir, const uint16_t superiorDatatype, const uint16_t subsidiaryDatatype, const uint8_t addressWidth, const uint16_t alignment = 4, const uint32_t setupFlags = 0);
+		static void NewIteration(const uint8_t condition, const uint16_t counterIteration, std::string& primaryKnownValue, std::string& secondaryKnownValue, const float precision = 1.0f, const uint32_t iterationFlags = 0);
 		static void ProcessNextRange(MemDump* range);
 		static const std::pair<uint64_t, uint16_t> GetSearchStats();
 		static MemCompareResults& GetResults();
