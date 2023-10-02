@@ -27,9 +27,11 @@ namespace MemoryCompare
 		bool _zipped = false;
 
 		void createHeader(const uint32_t index);
+		//MemCompareResults(const MemCompareResults& other);
 
 	public:
 		MemCompareResults(std::wstring path, uint16_t iteration, uint8_t addressWidth, uint16_t valueWidth, uint16_t rangeCount = 0, bool cached = false, bool zip = false);
+		
 
 		void SetNewRange(const uint64_t startingAddress);
 
@@ -214,7 +216,7 @@ namespace MemoryCompare
 		uint64_t GetTotalResultCount();
 		uint64_t GetResultCountByRangeIndex(const uint32_t index);
 		uint64_t GetResultCountOfRange(const uint64_t startingAddress);
-		void Clear();
+		void Clear(const bool keepIterationCount = false);
 		void SetValueWidth(const uint16_t width);
 		void SetAddressWidth(const uint8_t width);
 		bool SaveResults(uint32_t rangeIndex, bool zipped);
@@ -222,7 +224,7 @@ namespace MemoryCompare
 		uint16_t GetValueWidth() const;
 		void operator=(const MemCompareResults& other);
 		uint16_t GetRangeCount() const;
-		static void ClearResultsDir(const int iterationIndex);
+		static void ClearResultsDir(const int iterationIndex, const bool removeIterationDir = false);
 		static void SetResultsDir(const std::wstring& dir);
 	};
 }

@@ -140,11 +140,9 @@ namespace MemoryCompare
 			if (size == 0 && startPos == 0) //read all
 			{
 				size = end;
-				out = malloc(size);
 			}
 			else //read fraction
 			{
-				out = malloc(size);
 				uint64_t readableSize = end - startPos;
 				file.seekg(startPos, std::ios::cur);
 
@@ -176,7 +174,7 @@ namespace MemoryCompare
 		}
 
 		//Results
-		std::vector<MemCompareResults> _results;
+		static std::vector<MemCompareResults> _results;
 		uint32_t _iterationCount = 0;
 		uint64_t _resultCount = 0;
 

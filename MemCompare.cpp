@@ -1,6 +1,8 @@
 #pragma once
 #include"MemCompare.h"
 
+std::vector<MemoryCompare::MemCompareResults> MemoryCompare::MemCompare::_results;
+
 void MemoryCompare::MemCompare::selectPrimitiveUnknownInitial()
 {
 	switch (_subsidiaryDatatype)
@@ -667,8 +669,13 @@ void MemoryCompare::MemCompare::NewIteration(const uint8_t condition, const uint
 
 	if (counterIteration < GetInstance()._iterationCount)
 	{
-		GetInstance()._results.erase(GetInstance()._results.begin() + counterIteration, GetInstance()._results.end());
-		GetInstance()._results.back().LoadResults(false);
+		int oldCount = GetInstance()._iterationCount;
+		_results.erase(_results.begin() + counterIteration, _results.end());
+
+		for (int i = counterIteration; i < oldCount; ++i)
+			MemoryCompare::MemCompareResults::ClearResultsDir(i, true);
+
+		_results.back().LoadResults(false);
 	}
 
 	if (GetInstance()._iterationCount)
@@ -676,8 +683,8 @@ void MemoryCompare::MemCompare::NewIteration(const uint8_t condition, const uint
 	else
 		GetInstance()._iterationCount = 1;
 
-	if (GetInstance()._iterationCount > 2 && !GetInstance()._setupFlags & CACHED) //clear results more than 1 iteration ago
-		GetInstance()._results[GetInstance()._counterIterationIndex - 1].Clear();
+	if (GetInstance()._iterationCount > 2 && !(GetInstance()._setupFlags & CACHED)) //clear results more than 1 iteration ago
+		GetInstance()._results[GetInstance()._counterIterationIndex - 1].Clear(true);
 
 	GetInstance().setValueWidth();
 
@@ -688,7 +695,7 @@ void MemoryCompare::MemCompare::NewIteration(const uint8_t condition, const uint
 	GetInstance()._iterationCount = GetInstance()._iterationCount ? counterIteration + 1 : 1;
 	GetInstance()._counterIteration = GetInstance()._iterationCount > 1 ? counterIteration : 0;*/
 
-	GetInstance()._results.emplace_back(GetInstance()._resultsDir, GetInstance()._iterationCount, GetInstance()._addressWidth, GetInstance()._valueWidth/*, false, false*/);
+	_results.emplace_back(GetInstance()._resultsDir, GetInstance()._iterationCount, GetInstance()._addressWidth, GetInstance()._valueWidth/*, false, false*/);
 }
 
 void MemoryCompare::MemCompare::ProcessNextRange(MemDump* range)
@@ -699,7 +706,7 @@ void MemoryCompare::MemCompare::ProcessNextRange(MemDump* range)
 	GetInstance()._currentDumpAddress = range->GetDump<char*>();
 	GetInstance()._currentDumpSize = range->GetSize();
 	GetInstance()._currentBaseAddress = range->GetBaseAddress();
-	GetInstance()._results.back().SetNewRange(range->GetBaseAddress());
+	_results.back().SetNewRange(range->GetBaseAddress());
 
 	if (GetInstance()._superiorDatatype == ARRAY)
 	{
@@ -753,10 +760,10 @@ void MemoryCompare::MemCompare::ProcessNextRange(MemDump* range)
 		}
 	}
 
-	if (!GetInstance()._setupFlags & CACHED)
+	if (!(GetInstance()._setupFlags & CACHED))
 		GetInstance().saveResults();
 
-	GetInstance()._resultCount = GetInstance()._results.back().GetTotalResultCount();
+	GetInstance()._resultCount = _results.back().GetTotalResultCount();
 }
 
 const std::pair<uint64_t, uint16_t> MemoryCompare::MemCompare::GetSearchStats()

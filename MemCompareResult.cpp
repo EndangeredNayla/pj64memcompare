@@ -15,6 +15,11 @@ MemoryCompare::MemCompareResults::MemCompareResults(std::wstring path, uint16_t 
 	_zipped = zip;
 }
 
+//MemoryCompare::MemCompareResults::MemCompareResults(const MemCompareResults& other)
+//{
+//	*this = other;
+//}
+
 void MemoryCompare::MemCompareResults::createHeader(const uint32_t index)
 {
 	_fileHeaders.emplace_back();
@@ -63,15 +68,18 @@ uint64_t MemoryCompare::MemCompareResults::GetResultCountOfRange(const uint64_t 
 	return _resultCounts[0];
 }
 
-void MemoryCompare::MemCompareResults::Clear()
+void MemoryCompare::MemCompareResults::Clear(const bool keepIterationCount)
 {
 	_fileHeaders.clear();
 	_addresses.clear();
 	_values.clear();
 	_previousValues.clear();
 	_resultCounts.clear();
+	_startingAdresses.clear();
 	_totalResultCount = 0;
-	_iteration = 0;
+
+	if(!keepIterationCount)
+		_iteration = 0;
 }
 
 void MemoryCompare::MemCompareResults::SetValueWidth(const uint16_t width)
@@ -113,17 +121,23 @@ bool MemoryCompare::MemCompareResults::SaveResults(uint32_t rangeIndex, bool zip
 	return true;
 }
 
-void MemoryCompare::MemCompareResults::ClearResultsDir(const int iterationIndex)
+void MemoryCompare::MemCompareResults::ClearResultsDir(const int iterationIndex, const bool removeIterationDir)
 {
-	if (iterationIndex > -1)
-		for (const auto& entry : std::filesystem::directory_iterator(_path + std::to_wstring(iterationIndex)))
-		{
-			std::wcout << entry.path() << std::endl;
-			std::filesystem::remove_all(entry.path());
-		}
-	else
+	if (iterationIndex < 0)
+	{
 		for (const auto& entry : std::filesystem::directory_iterator(_path))
 			std::filesystem::remove_all(entry.path());
+	}
+	else 
+	{
+		for (const auto& entry : std::filesystem::directory_iterator(_path + std::to_wstring(iterationIndex)))
+			std::filesystem::remove_all(entry.path());
+
+		if (removeIterationDir)
+		{
+			std::filesystem::remove(_path + std::to_wstring(iterationIndex));
+		}
+	}
 }
 
 void MemoryCompare::MemCompareResults::SetResultsDir(const std::wstring& dir)
@@ -133,19 +147,19 @@ void MemoryCompare::MemCompareResults::SetResultsDir(const std::wstring& dir)
 
 bool MemoryCompare::MemCompareResults::LoadResults(bool zipped)
 {
-	Clear();
-	std::wstring path = _path + L"\\" + std::to_wstring(_iteration);
+	Clear(true);
+	std::wstring path = _path + std::to_wstring(_iteration-1);
 
 	for (const auto& entry : std::filesystem::directory_iterator(path))
 	{
-		std::cout << entry.path() << std::endl;
+		//std::cout << entry.path() << std::endl;
 
 		uint64_t readSize = HEADER_SIZE;
-		_fileHeaders.emplace_back();
+		_fileHeaders.emplace_back(readSize, 0);
 		static int index = _fileHeaders.size() - 1;
 		static uint64_t readPos = 0;
 
-		if (!LoadBinary(entry.path(), _fileHeaders[index].data(), readSize, readPos))
+		if (!LoadBinary(entry.path(), _fileHeaders.back().data(), readSize, readPos))
 			return false;
 
 		_startingAdresses.push_back(*(uint64_t*)_fileHeaders[index].data());
