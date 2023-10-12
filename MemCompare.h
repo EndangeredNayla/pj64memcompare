@@ -557,6 +557,21 @@ namespace MemoryCompare
 				}
 			}
 			break;
+			case LitColor::RGB5A3:
+			{
+				DataAccess<uint16_t> byteReader;
+				byteReader.reader = _setupFlags & BIG_ENDIAN ? DataAccess<uint16_t>::readReversed : DataAccess<uint16_t>::read;
+
+				for (uint64_t offsetDump = 0; offsetDump < _currentDumpSize; offsetDump += _alignment)
+				{
+					addr = _currentBaseAddress + offsetDump;
+					readVal = byteReader(*reinterpret_cast<uint16_t*>(_currentDumpAddress + offsetDump));
+
+					if (comparisonOperator(readVal, knownVal, _precision))
+						_results.back().PushBackResult<addressType, uint16_t>(addr, readVal.GetRGB5A3());
+				}
+			}
+			break;
 			case LitColor::RGBF: case LitColor::RGBAF:
 			{
 				DataAccess<float> byteReader;
@@ -619,6 +634,21 @@ namespace MemoryCompare
 
 					if (comparisonOperator(readVal, knownVal, _precision))
 						_results.back().PushBackResult<addressType, uint16_t>(addr, readVal.GetRGB565(), _results[_counterIterationIndex].GetValueByRangeIndex<uint16_t>(_previousIterationRangeIndex, i));
+				}
+			}
+			break;
+			case LitColor::RGB5A3:
+			{
+				DataAccess<uint16_t> byteReader;
+				byteReader.reader = _setupFlags & BIG_ENDIAN ? DataAccess<uint16_t>::readReversed : DataAccess<uint16_t>::read;
+
+				for (uint64_t i = 0; i < _results[_counterIterationIndex].GetResultCountByRangeIndex(_previousIterationRangeIndex); ++i)
+				{
+					addr = _results[_counterIterationIndex].GetAddressByRangeIndex<addressType>(_previousIterationRangeIndex, i);
+					readVal = byteReader(*reinterpret_cast<uint16_t*>(_currentDumpAddress + addr - _currentBaseAddress));
+
+					if (comparisonOperator(readVal, knownVal, _precision))
+						_results.back().PushBackResult<addressType, uint16_t>(addr, readVal.GetRGB5A3(), _results[_counterIterationIndex].GetValueByRangeIndex<uint16_t>(_previousIterationRangeIndex, i));
 				}
 			}
 			break;
