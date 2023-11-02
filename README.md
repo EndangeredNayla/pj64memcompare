@@ -59,8 +59,11 @@ This scans a single memory region/memory dump. Call this function with each memo
 #### MemDump* range
 Memory dump/range to be scanned/compared. More details down below.
 
-### std::pair<uint64_t, uint16_t> GetSearchStats()
-Returns the current search results. *.first* is the total result count. *.second* is the iteration count.
+### uint64_t GetResultCount()
+Returns the current search result count.
+
+### uint16_t GetIterationCount()
+Returns the current search iteration count.
 
 ### MemCompareResults& GetResults()
 Returns a reference to all search results of the last iteration. Use MemoryCompare::MemCompare::GetResults().GetValueAllRanges(1234) for instance. More details below on how to retreive search results though this function.

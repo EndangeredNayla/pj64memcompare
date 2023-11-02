@@ -805,8 +805,9 @@ namespace MemoryCompare
 		static void SetUp(const std::wstring& resultsDir, const uint16_t superiorDatatype, const uint16_t subsidiaryDatatype, const uint8_t addressWidth, const uint16_t alignment = 4, const uint32_t setupFlags = 0);
 		static void NewIteration(const uint8_t condition, const uint16_t counterIteration, std::string& primaryKnownValue, std::string& secondaryKnownValue, const float precision = 1.0f, const uint32_t iterationFlags = 0);
 		static void ProcessNextRange(MemDump* range);
-		static const std::pair<uint64_t, uint16_t> GetSearchStats();
 		static MemCompareResults& GetResults();
 		static void Reset();
+		static uint64_t GetResultCount();
+		static uint64_t GetIterationCount();
 	};
 }

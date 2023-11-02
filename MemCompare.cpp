@@ -766,9 +766,14 @@ void MemoryCompare::MemCompare::ProcessNextRange(MemDump* range)
 	GetInstance()._resultCount = _results.back().GetTotalResultCount();
 }
 
-const std::pair<uint64_t, uint16_t> MemoryCompare::MemCompare::GetSearchStats()
+uint64_t MemoryCompare::MemCompare::GetResultCount()
 {
-	return std::pair<uint64_t, uint16_t>(GetInstance()._resultCount, GetInstance()._iterationCount);
+	return GetInstance()._resultCount;
+}
+
+uint64_t MemoryCompare::MemCompare::GetIterationCount()
+{
+	return GetInstance()._iterationCount;
 }
 
 MemoryCompare::MemCompareResults& MemoryCompare::MemCompare::GetResults()
