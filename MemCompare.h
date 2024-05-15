@@ -698,7 +698,7 @@ namespace MemoryCompare
 			DataAccess<uint32_t> byteReader;
 			byteReader.reader = _setupFlags & BIG_ENDIAN ? DataAccess<uint32_t>::readReversed : DataAccess<uint32_t>::read;
 			MorphText knownValUTF8(_primaryKnownValueStr);
-			const int charCount = _primaryKnownValueStr.size();
+			const int charCount = _subsidiaryDatatype == MorphText::SHIFTJIS ? knownValUTF8.GetShiftJis().size() : _primaryKnownValueStr.size();
 			const bool isBigEndian = _subsidiaryDatatype == MorphText::UTF16BE || _subsidiaryDatatype == MorphText::UTF32BE;
 			knownValUTF8.SetPrimaryFormat(_subsidiaryDatatype);
 
