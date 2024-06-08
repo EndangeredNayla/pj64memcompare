@@ -615,7 +615,7 @@ void MemoryCompare::MemCompare::setValueWidth()
 	case TEXT:
 		switch (_subsidiaryDatatype)
 		{
-		case MorphText::UTF16BE: case MorphText::UTF16LE: case MorphText::SHIFTJIS:
+		case MorphText::UTF16BE: case MorphText::UTF16LE: case MorphText::SHIFTJIS_CP932:
 			_valueWidth = 2;
 			break;
 		case MorphText::UTF32BE: case MorphText::UTF32LE:

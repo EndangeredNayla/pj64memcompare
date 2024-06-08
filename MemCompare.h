@@ -698,58 +698,60 @@ namespace MemoryCompare
 			DataAccess<uint32_t> byteReader;
 			byteReader.reader = _setupFlags & BIG_ENDIAN ? DataAccess<uint32_t>::readReversed : DataAccess<uint32_t>::read;
 			MorphText knownValUTF8(_primaryKnownValueStr);
-			const int charCount = _subsidiaryDatatype == MorphText::SHIFTJIS ? knownValUTF8.GetShiftJis().size() : _primaryKnownValueStr.size();
-			const bool isBigEndian = _subsidiaryDatatype == MorphText::UTF16BE || _subsidiaryDatatype == MorphText::UTF32BE;
-			knownValUTF8.SetPrimaryFormat(_subsidiaryDatatype);
+			int charCount;
+			knownValUTF8.SetPrimaryEncoding(_subsidiaryDatatype);
 
 			switch (_subsidiaryDatatype)
 			{
-			case MorphText::UTF16LE: case MorphText::UTF16BE: {
-				std::wstring buf(charCount, '\0');
-				knownVal = isBigEndian ? knownValUTF8.GetUTF16(true) : knownValUTF8.GetUTF16();
+				case MorphText::UTF16LE: case MorphText::UTF16BE: {
+					charCount = knownValUTF8.GetString<std::wstring>(_subsidiaryDatatype).size();
+					std::wstring buf(charCount, '\0');
+					knownVal = knownValUTF8.GetString<std::wstring>(_subsidiaryDatatype);
 
-				for (uint64_t offsetDump = 0; offsetDump < _currentDumpSize; offsetDump += _alignment)
-				{
-					memcpy(buf.data(), _currentDumpAddress + offsetDump, charCount);
-
-					if (knownVal.Compare(buf.data(), _setupFlags & CASE_SENSITIVE, isBigEndian))
+					for (uint64_t offsetDump = 0; offsetDump < _currentDumpSize; offsetDump += _alignment)
 					{
-						addr = _currentBaseAddress + offsetDump;
-						_results.back().PushBackResultByPtr<addressType>(addr, reinterpret_cast<char*>(buf.data()));
+						memcpy(buf.data(), _currentDumpAddress + offsetDump, charCount);
+
+						if (knownVal.Compare(buf.data(), _setupFlags & CASE_SENSITIVE, _subsidiaryDatatype))
+						{
+							addr = _currentBaseAddress + offsetDump;
+							_results.back().PushBackResultByPtr<addressType>(addr, reinterpret_cast<char*>(buf.data()));
+						}
+					}
+				} break;
+				case MorphText::UTF32LE: case MorphText::UTF32BE: {
+					charCount = knownValUTF8.GetString<std::u32string>(_subsidiaryDatatype).size();
+					std::u32string buf(charCount, '\0');
+					knownVal = knownValUTF8.GetString<std::u32string>(_subsidiaryDatatype);
+
+					for (uint64_t offsetDump = 0; offsetDump < _currentDumpSize; offsetDump += _alignment)
+					{
+						memcpy(buf.data(), _currentDumpAddress + offsetDump, charCount);
+
+						if (knownVal.Compare(buf.data(), _setupFlags & CASE_SENSITIVE, _subsidiaryDatatype))
+						{
+							addr = _currentBaseAddress + offsetDump;
+							_results.back().PushBackResultByPtr<addressType>(addr, reinterpret_cast<char*>(buf.data()));
+						}
+					}
+				} break;
+				default: //ASCII, Shift-Jis, UTF-8, ISO-8859-X
+				{
+					charCount = knownValUTF8.GetString<std::string>(_subsidiaryDatatype).size();
+					std::string buf(charCount, '\0');
+
+					for (uint64_t offsetDump = 0; offsetDump < _currentDumpSize; offsetDump += _alignment)
+					{
+						memcpy(buf.data(), _currentDumpAddress + offsetDump, charCount);
+
+						if (knownValUTF8.Compare(buf.c_str(), _setupFlags & CASE_SENSITIVE, _subsidiaryDatatype))
+						{
+							addr = _currentBaseAddress + offsetDump;
+							buf.append("\0");
+							_results.back().PushBackResultByPtr<addressType>(addr, (char*)buf.c_str());
+						}
 					}
 				}
-			} break;
-			case MorphText::UTF32LE: case MorphText::UTF32BE: {
-				std::u32string buf(charCount, '\0');
-				knownVal = isBigEndian ? knownValUTF8.GetUTF32(true) : knownValUTF8.GetUTF32();
-
-				for (uint64_t offsetDump = 0; offsetDump < _currentDumpSize; offsetDump += _alignment)
-				{
-					memcpy(buf.data(), _currentDumpAddress + offsetDump, charCount);
-
-					if (knownVal.Compare(buf.data(), _setupFlags & CASE_SENSITIVE, isBigEndian))
-					{
-						addr = _currentBaseAddress + offsetDump;
-						_results.back().PushBackResultByPtr<addressType>(addr, reinterpret_cast<char*>(buf.data()));
-					}
-				}
-			} break;
-			default: //ASCII, Shift-Jis, UTF-8, ISO-8859-X
-			{
-				std::string buf(charCount, '\0');
-
-				for (uint64_t offsetDump = 0; offsetDump < _currentDumpSize; offsetDump += _alignment)
-				{
-					memcpy(buf.data(), _currentDumpAddress + offsetDump, charCount);
-
-					if (knownValUTF8.Compare(buf.c_str(), _setupFlags & CASE_SENSITIVE, _subsidiaryDatatype))
-					{
-						addr = _currentBaseAddress + offsetDump;
-						buf.append("\0");
-						_results.back().PushBackResultByPtr<addressType>(addr, (char*)buf.c_str());
-					}
-				}
-			}
 			}
 		}
 
