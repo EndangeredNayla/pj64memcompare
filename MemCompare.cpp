@@ -701,7 +701,7 @@ void MemoryCompare::MemCompare::NewIteration(const uint8_t condition, const uint
 void MemoryCompare::MemCompare::ProcessNextRange(MemDump* range)
 {
 	if (GetInstance()._iterationCount > 1)
-		GetInstance()._previousIterationRangeIndex = GetInstance()._results[GetInstance()._counterIterationIndex].GetRangeIndexOfStartingAddress(range->GetBaseAddress());
+		GetInstance()._previousIterationRangeIndex = _results[GetInstance()._counterIterationIndex].GetRangeIndexOfStartingAddress(range->GetBaseAddress());
 
 	GetInstance()._currentDumpAddress = range->GetDump<char*>();
 	GetInstance()._currentDumpSize = range->GetSize();

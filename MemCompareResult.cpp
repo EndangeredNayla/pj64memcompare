@@ -108,14 +108,14 @@ bool MemoryCompare::MemCompareResults::SaveResults(uint32_t rangeIndex, bool zip
 	if (_addresses.size() == 0)
 		return true;
 
-	if (!SaveBinary(path, &_addresses[rangeIndex * _valueWidth], _resultCounts[rangeIndex] * _addressWidth, true, zipped))
+	if (!SaveBinary(path, _addresses.data(), _resultCounts[rangeIndex] * _addressWidth, true, zipped))
 		return false;
 
-	if (!SaveBinary(path, &_values[rangeIndex], _resultCounts[rangeIndex] * _valueWidth, true, zipped))
+	if (!SaveBinary(path, _values.data(), _resultCounts[rangeIndex] * _valueWidth, true, zipped))
 		return false;
 
 	if(_iteration > 1)
-		if (!SaveBinary(path, &_previousValues[rangeIndex], _resultCounts[rangeIndex] * _valueWidth, true, zipped))
+		if (!SaveBinary(path, _previousValues.data(), _resultCounts[rangeIndex] * _valueWidth, true, zipped))
 			return false;
 
 	return true;
