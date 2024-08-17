@@ -703,6 +703,9 @@ void MemoryCompare::MemCompare::ProcessNextRange(MemDump* range)
 	if (GetInstance()._iterationCount > 1)
 		GetInstance()._previousIterationRangeIndex = _results[GetInstance()._counterIterationIndex].GetRangeIndexOfStartingAddress(range->GetBaseAddress());
 
+	if (GetInstance()._previousIterationRangeIndex < 0)
+		GetInstance()._previousIterationRangeIndex = 0;
+
 	GetInstance()._currentDumpAddress = range->GetDump<char*>();
 	GetInstance()._currentDumpSize = range->GetSize();
 	GetInstance()._currentBaseAddress = range->GetBaseAddress();
