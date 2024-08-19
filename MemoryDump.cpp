@@ -1,6 +1,6 @@
-#include "MemDump.h"
-#include "MemCompare.h"
-#include<fstream>
+#include "MemoryDump.hpp"
+#include "MemoryCompare.hpp"
+#include <fstream>
 
 MemoryCompare::MemDump::MemDump(void* baseLocation, const uint64_t baseAddress, const uint64_t size)
 {

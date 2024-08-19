@@ -1,11 +1,11 @@
 #pragma once
-#include"MemDump.h"
-#include"LitColor.h"
-#include"MorphText.h"
-#include"OperativeArray.h"
-#include<functional>
-#include<iostream>
-#include"MemCompareResult.h"
+#include "MemoryDump.hpp"
+#include "LitColor.hpp"
+#include "MorphText.hpp"
+#include "OperativeArray.hpp"
+#include <functional>
+#include <iostream>
+#include "MemoryCompareResult.hpp"
 #include <type_traits>
 
 namespace MemoryCompare

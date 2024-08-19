@@ -1,14 +1,14 @@
 #pragma once
-#include"MemDump.h"
-#include<functional>
-#include<iostream>
-#include"MemCompareResult.h"
-#include"MemCompareOperations.h"
+#include "MemoryDump.hpp"
+#include <functional>
+#include <iostream>
+#include "MemoryCompareResult.hpp"
+#include "MemoryCompareOperators.hpp"
 #include <type_traits>
-#include"LitColor.h"
-#include"MorphText.h"
-#include"OperativeArray.h"
-#include<fstream>
+#include "LitColor.hpp"
+#include "MorphText.hpp"
+#include "OperativeArray.hpp"
+#include <fstream>
 
 namespace MemoryCompare
 {

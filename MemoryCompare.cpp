@@ -1,5 +1,5 @@
 #pragma once
-#include"MemCompare.h"
+#include "MemoryCompare.hpp"
 
 std::vector<MemoryCompare::MemCompareResults> MemoryCompare::MemCompare::_results;
 

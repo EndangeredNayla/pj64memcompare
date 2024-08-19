@@ -1,6 +1,6 @@
-#include"MemCompareResult.h"
-#include"MemCompare.h"
-#include<filesystem>
+#include "MemoryCompareResult.hpp"
+#include "MemoryCompare.hpp"
+#include <filesystem>
 
 std::wstring MemoryCompare::MemCompareResults::_path = L"";
 
