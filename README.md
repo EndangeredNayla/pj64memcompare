@@ -5,7 +5,7 @@ A library for comparing memory dumps
 
 The MemCompare class is a singleton class and therefore has no initialization. Instead it needs to be reset before performing a new memory comparirion queue. This is needed to be called in the beginning of each iteration once.
 
-### SetUp(std::wstring& resultsDir, uint16_t superiorDatatype, uint16_t subsidiaryDatatype, uint8_t addressWidth, bool isSigned, uint16_t alignment = 4, bool swapBytes = false, bool cached = false)
+### SetUp(std::wstring& resultsDir, uint16_t superiorDatatype, uint16_t subsidiaryDatatype, uint8_t addressWidth, uint16_t alignment = 4, bool swapBytes = false, uint32_t setupFlags)
 Before starting any comparision the comparision queue has to be setup once. 
 
 #### std::wstring& resultsDir
@@ -21,11 +21,18 @@ Superior Datatype of the serch queue. More details down below.
 #### uint8_t addressWidth
 The width of addresses in bytes. This is needed to probably store results of more complex datatypes.
 
-#### bool signedOrCaseSensitive
-If this is true, searches for integer values will be signed and searches for string values (Text) will be case-sensitive.
-
-####  uint16_t alignment = 4
+#### uint16_t alignment = 4
 This value affects the step's wisdth the scan iterates through the memory dump. 4 is usually a good option since many values are aligned by 4 bytes. But for values narrower than 4 bytes, string values,a and RGB888 values an alignment of 1 might be better instead.
+
+#### uint32_t setupFlags
+Flags to pass further search settings.
+- SIGNED: Whether integer types should be considered signed 
+- CASE_SENSITIVE: Whether strings should be considered case-sensitive
+- BIG_ENDIAM: If memory dumps are big endian
+- CACHED: If memory dumps should be held in RAM rahter than saved to disk (faster but uses more RAM)
+- DISABLE_UNDO: Whether comparing against iterations older than the previous one should be disabled (saves RAM if CACHED is true)
+It is highly recommended having CACHED and DISABLE_UNDO set to true if scanning PC games.
+Flags can be or'd together!
 
 #### bool swapBytes = false
 This allows scanning big endian memory dumps on little endian machines and vice versa. If true the opposite endianness will be considered.

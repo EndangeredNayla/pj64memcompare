@@ -667,7 +667,8 @@ void MemoryCompare::MemCompare::NewIteration(const uint8_t condition, const uint
 	GetInstance()._counterIteration = counterIteration;
 	GetInstance()._counterIterationIndex = counterIteration - 1;
 
-	if (counterIteration < GetInstance()._iterationCount)
+
+	if (counterIteration < GetInstance()._iterationCount && !(GetInstance()._setupFlags & DISABLE_UNDO))
 	{
 		int oldCount = GetInstance()._iterationCount;
 		_results.erase(_results.begin() + counterIteration, _results.end());
@@ -683,7 +684,8 @@ void MemoryCompare::MemCompare::NewIteration(const uint8_t condition, const uint
 	else
 		GetInstance()._iterationCount = 1;
 
-	if (GetInstance()._iterationCount > 2 && !(GetInstance()._setupFlags & CACHED)) //clear results more than 1 iteration ago
+	if ((GetInstance()._iterationCount > 2 && !(GetInstance()._setupFlags & CACHED)) //clear results more than 1 iteration ago since they will be loaded from storage drive on undo
+		|| GetInstance()._iterationCount > 2 && GetInstance()._setupFlags & DISABLE_UNDO) //don't keep them at all if undo is disabled
 		GetInstance()._results[GetInstance()._counterIterationIndex - 1].Clear(true);
 
 	GetInstance().setValueWidth();
@@ -763,7 +765,7 @@ void MemoryCompare::MemCompare::ProcessNextRange(MemDump* range)
 		}
 	}
 
-	if (!(GetInstance()._setupFlags & CACHED))
+	if (!(GetInstance()._setupFlags & CACHED) || (GetInstance()._setupFlags & DISABLE_UNDO))
 		GetInstance().saveResults();
 
 	GetInstance()._resultCount = _results.back().GetTotalResultCount();

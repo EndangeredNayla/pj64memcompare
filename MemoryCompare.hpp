@@ -54,7 +54,8 @@ namespace MemoryCompare
 		BIG_ENDIAN = 1 << 2,
 		REWIND_ENABLED = 1 << 3,
 		CACHED = 1 << 4,
-		ZIP_RESULTS = 1 << 5
+		ZIP_RESULTS = 1 << 5,
+		DISABLE_UNDO = 1 << 6
 	};
 
 	enum IterationFlags
